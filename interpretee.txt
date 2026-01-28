@@ -1,0 +1,28 @@
+main
+var zoink67, legalegends; 
+
+void function jaegoat(aphelios, nautilus); var adc, support; {
+    let adc <- aphelios;
+    let support <- nautilus;
+    if adc != support then
+        let support = support * 2;
+    else
+        let adc = adc / 2;
+    fi;
+    if adc < support then
+        let support = 1000 * 2;
+    return;
+}
+
+{
+let zoink67 <- 67;
+let legalegends <- 200;
+if zoink67 < legalegends then
+    let legalegends = legalegends + zoink67;
+else
+    let legalegends = 100;
+fi;
+}
+
+
+.
