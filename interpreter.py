@@ -91,6 +91,10 @@ class FileStream:
 
         while True:
             buffer.append(self.file.read(1))
+            if buffer == ['2', '0', '1', '8']:
+                print(buffer)
+            elif buffer == ["f", "i"]:
+                print(buffer)
             match state:
                 case State.EMPTY:
                     if buffer[-1].isalpha():
@@ -103,6 +107,8 @@ class FileStream:
                         break
                     elif buffer[-1] == ".":
                         break
+                    elif buffer[-1] == ",":
+                        break
                     elif buffer[-1] == "+":
                         break
                     elif buffer[-1] == "-":
@@ -114,6 +120,10 @@ class FileStream:
                     elif buffer[-1] == "(":
                         break
                     elif buffer[-1] == ")":
+                        break
+                    elif buffer[-1] == "{":
+                        break
+                    elif buffer[-1] == "}":
                         break
                     elif buffer[-1] == "=":
                         state = State.EQUAL
@@ -155,6 +165,8 @@ class FileStream:
                         break
             
         self.token = "".join(buffer)
+        if self.token == "2018":
+            print(2018)
         return
             
     def close(self):
@@ -371,8 +383,14 @@ def interpret(file_name: str) -> None:
         if file_stream.peek_token() != ".":
             raise SyntaxError(f"Expected \'.\' to end computation")
     
-    computation()
-    
+    tokens = []
+    file_stream.next_token()
+    while file_stream.peek_token() != "":
+        if file_stream.peek_token() == "2018":
+            print(1)
+        tokens.append(file_stream.peek_token())
+        file_stream.next_token()
+    print(tokens)
     file_stream.close()
 
 
