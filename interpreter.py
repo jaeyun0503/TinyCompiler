@@ -25,7 +25,7 @@ class State(IntEnum):
     LESS_THAN = auto()
     GREATER_THAN = auto()
 
-class Keyword(Enum):
+class Keyword(str, Enum):
     LET = "let"
     CALL = "call"
     IF = "if"
@@ -41,7 +41,7 @@ class Keyword(Enum):
     FUNCTION = "function"
     MAIN = "main"
 
-class Token(Enum):
+class Token(str, Enum):
     ASSIGNMENT = "<-"
     LT = "<"
     LEQ = "<="
@@ -64,6 +64,8 @@ class Identifier:
     def __init__(self):
         self.keywords = {keyword.value for keyword in Token}
         self.variables = dict()
+        self.predefined_functions = {"InputNum", "OutputNum", "OutputNewLine"}
+        self.functions = self.predefined_functions.copy()
 
 class FileStream:
     def __init__(self, file_name: str):
@@ -153,6 +155,9 @@ class FileStream:
                         break
                     elif buffer[-1] == "=":
                         break
+                    elif buffer[-1] == " ":
+                        buffer.pop()
+                        break
                     else:
                         break
                 case State.NOT_EQUAL:
@@ -238,14 +243,28 @@ def interpret(file_name: str) -> None:
     
     ## STATEMENT PARSING
     def assignment() -> None:
-        file_stream.next_token()
+        file_stream.next_token() # consume Keyword.LET
         variable_name = file_stream.peek_token()
-        file_stream.next_token()
+        file_stream.next_token() # consume variable_name
         if file_stream.peek_token() != Token.ASSIGNMENT:
             raise SyntaxError(f"Expected \'<-\' following \'let\' + identifier \'{variable_name}\'")
-        file_stream.next_token()
+        file_stream.next_token() # consume Token.ASSIGNMENT
         identifier.variables[variable_name] = expression()
     
+    def function_call() -> None:
+        file_stream.next_token() # consume Keyword.CALL
+        function_name = file_stream.peek_token()
+        file_stream.next_token() # consume function_name
+        function_arguments = []
+        file_stream.next_token()
+        if file_stream.peek_token() == Token.OPEN_PARENTHESES:
+            file_stream.next_token() # consume TOken.OPEN_PARENTHESES
+            while file_stream.peek_token() == Token.COMMA:
+                function_arguments.append(expression())
+            if file_stream.peek_token() != Token.CLOSE_PARENTHESES:
+                raise SyntaxError(f"Expected \')\' to close called function arguments")
+            file_stream.next_token()
+
     def if_then_else_fi() -> None:
         if file_stream.peek_token() != Keyword.IF:
             raise SyntaxError(f"Expected \'if'\ token")
@@ -257,9 +276,10 @@ def interpret(file_name: str) -> None:
         if file_stream.peek_token() != Keyword.THEN:
             raise SyntaxError(f"Expected \'then'\ token")
         file_stream.next_token() # consume Keyword.THEN
-        statement()
+        statement_sequence()
         if file_stream.peek_token() == Keyword.ELSE:
-            statement()
+            file_stream.next_token()
+            statement_sequence()
         if file_stream.peek_token() != Keyword.FI:
             raise SyntaxError(f"Expected \'fi\' token")
         file_stream.next_token()
@@ -284,7 +304,9 @@ def interpret(file_name: str) -> None:
         if file_stream.peek_token() != Keyword.RETURN:
             raise SyntaxError(f"Expected \'return\' token")
         file_stream.next_token() # consume Keyword.RETURN
-        result = expression()
+        if file_stream.peek_token() != Token.SEPARATOR:
+            result = expression()
+        return
 
     def statement_sequence() -> None:
         #//FLAG PARSE STATEMENTS TO ACTUALLY DO SOMETHING
@@ -297,7 +319,6 @@ def interpret(file_name: str) -> None:
 
     def statement() -> None:
         while True: # do-while loop for parsing statements
-            file_stream.next_token()
             match file_stream.peek_token():
                 case Keyword.LET:
                     assignment()
@@ -313,8 +334,12 @@ def interpret(file_name: str) -> None:
                     returning()
                 case Token.SEPARATOR:
                     file_stream.next_token()
+                case Keyword.CALL:
+                    function_call()
                 case Keyword.VOID | Keyword.FUNCTION:
                     function_declaration()
+                case _:
+                    break
         
     def variable_declaration() -> list:
         variable_names = []
@@ -335,22 +360,23 @@ def interpret(file_name: str) -> None:
         variable_names = variable_declaration()
         if file_stream.peek_token() != Token.OPEN_BRACE:
             raise SyntaxError(f"Expected \'{{\' to start statement sequence")
+        file_stream.next_token()
         statement_sequence()
         if file_stream.peek_token() != Token.CLOSE_BRACE:
             raise SyntaxError(f"Expected \'}}\' to end statement sequence")
         file_stream.next_token()
 
     def formal_parameters() -> list:
-        if file_stream.peek_token != Token.OPEN_PARENTHESES:
+        if file_stream.peek_token() != Token.OPEN_PARENTHESES:
             raise SyntaxError(f"Expected \'(\' to start formal params")
         file_stream.next_token()
         parameters = [file_stream.peek_token()]
         file_stream.next_token()
-        while file_stream.peek_token() != Token.COMMA:
+        while file_stream.peek_token() == Token.COMMA:
             file_stream.next_token()
             parameters.append(file_stream.peek_token())
             file_stream.next_token()
-        if file_stream.peek_token != Token.CLOSE_PARENTHESES:
+        if file_stream.peek_token() != Token.CLOSE_PARENTHESES:
             raise SyntaxError(f"Expected \')\' to close formal params")
         file_stream.next_token()
         return parameters
@@ -377,9 +403,11 @@ def interpret(file_name: str) -> None:
                 function_declaration()
             if file_stream.peek_token() != Token.OPEN_BRACE:
                 raise SyntaxError(f"Expected \'{{\' to open statement sequence")
+            file_stream.next_token()
             statement_sequence()
             if file_stream.peek_token() != Token.CLOSE_BRACE:
                 raise SyntaxError(f"Expected \'}}\' to close statement sequence")
+            file_stream.next_token()
         if file_stream.peek_token() != ".":
             raise SyntaxError(f"Expected \'.\' to end computation")
     
@@ -391,6 +419,10 @@ def interpret(file_name: str) -> None:
         tokens.append(file_stream.peek_token())
         file_stream.next_token()
     print(tokens)
+
+    # file_stream.next_token()
+    # computation()
+
     file_stream.close()
 
 
