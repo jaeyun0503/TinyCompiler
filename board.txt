@@ -8,3 +8,11 @@ bugs
     last few semicolons not being tokenized
         they are tokenized if manually step-through in debug
         they are not tokenized if program executed or debug goes through them without manual stepping
+        
+        how to replicate issue:
+            observe that on simple execution,
+                ; is not a token after 2018
+                ; is not a token after the last fi in the program
+            now set breakpoints and manually step through line by line for the moments where these tokens are being tokenized
+                observe that ; will be tokenized
+                
