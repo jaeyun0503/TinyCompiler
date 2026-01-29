@@ -8,25 +8,34 @@ void function jaegoat(aphelios, nautilus); var adc, support; {
         let support <- support * 2;
     else
         let adc <- adc / 2;
-    fi;
+    fi
     if adc < support then
         let support <- 1000 * 2;
-    fi;
+    fi
     return;
 };
 
 {
 let zoink67 <- 67;
 let legalegends <- 200;
+
 if zoink67 <= legalegends then
     let legalegends <- legalegends + zoink67;
     if legalegends == legalegends then
         let legalegends <- legalegends;
     else
         let legalegends <- legalegends * 0;
-    fi;
+    fi
 else
-    let legalegends <- 2018;
-fi;
+    let zoink67 <- 10;
+fi
+
+let zoink67 <- 1;
+while zoink67 <= 10 do
+    let zoink67 <- zoink67 + 1;
+    call OutputNum(zoink67);
+od
+
+
 }
 .

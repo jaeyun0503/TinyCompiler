@@ -93,10 +93,6 @@ class FileStream:
 
         while True:
             buffer.append(self.file.read(1))
-            if buffer == ['2', '0', '1', '8']:
-                print(buffer)
-            elif buffer == ["f", "i"]:
-                print(buffer)
             match state:
                 case State.EMPTY:
                     if buffer[-1].isalpha():
@@ -170,8 +166,6 @@ class FileStream:
                         break
             
         self.token = "".join(buffer)
-        if self.token == "2018":
-            print(2018)
         return
             
     def close(self):
@@ -256,9 +250,10 @@ def interpret(file_name: str) -> None:
         function_name = file_stream.peek_token()
         file_stream.next_token() # consume function_name
         function_arguments = []
-        file_stream.next_token()
         if file_stream.peek_token() == Token.OPEN_PARENTHESES:
-            file_stream.next_token() # consume TOken.OPEN_PARENTHESES
+            file_stream.next_token() # consume Token.OPEN_PARENTHESES
+            function_arguments.append(file_stream.peek_token())
+            file_stream.next_token() # consume first function argument
             while file_stream.peek_token() == Token.COMMA:
                 function_arguments.append(expression())
             if file_stream.peek_token() != Token.CLOSE_PARENTHESES:
@@ -267,14 +262,14 @@ def interpret(file_name: str) -> None:
 
     def if_then_else_fi() -> None:
         if file_stream.peek_token() != Keyword.IF:
-            raise SyntaxError(f"Expected \'if'\ token")
+            raise SyntaxError(f"Expected \'if\' token")
         file_stream.next_token() # consume Keyword.IF
         left_hand_side = expression()
         relation_operator = file_stream.peek_token()
         file_stream.next_token()
         right_hand_side = expression()
         if file_stream.peek_token() != Keyword.THEN:
-            raise SyntaxError(f"Expected \'then'\ token")
+            raise SyntaxError(f"Expected \'then\' token")
         file_stream.next_token() # consume Keyword.THEN
         statement_sequence()
         if file_stream.peek_token() == Keyword.ELSE:
@@ -295,7 +290,7 @@ def interpret(file_name: str) -> None:
         if file_stream.peek_token() != Keyword.DO:
             raise SyntaxError(f"Expected \'do\' token")
         file_stream.next_token() # consume Keyword.DO
-        statement()
+        statement_sequence()
         if file_stream.peek_token() != Keyword.OD:
             raise SyntaxError(f"Expected \'od\' token")
         file_stream.next_token()
@@ -330,6 +325,8 @@ def interpret(file_name: str) -> None:
                     break
                 case Keyword.WHILE:
                     while_do_od()
+                case Keyword.OD:
+                    break
                 case Keyword.RETURN:
                     returning()
                 case Token.SEPARATOR:
@@ -411,17 +408,16 @@ def interpret(file_name: str) -> None:
         if file_stream.peek_token() != ".":
             raise SyntaxError(f"Expected \'.\' to end computation")
     
-    tokens = []
-    file_stream.next_token()
-    while file_stream.peek_token() != "":
-        if file_stream.peek_token() == "2018":
-            print(1)
-        tokens.append(file_stream.peek_token())
-        file_stream.next_token()
-    print(tokens)
-
+    # tokens = []
     # file_stream.next_token()
-    # computation()
+    # while file_stream.peek_token() != "":
+    #     tokens.append(file_stream.peek_token())
+    #     file_stream.next_token()
+    # print(tokens)
+
+    # actual program execution
+    file_stream.next_token()
+    computation()
 
     file_stream.close()
 
