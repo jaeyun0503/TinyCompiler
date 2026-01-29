@@ -1,7 +1,7 @@
 breeuhhh
 
 development
-    1
+    test while statements and function calls
 
 
 bugs
@@ -15,4 +15,3 @@ bugs
                 ; is not a token after the last fi in the program
             now set breakpoints and manually step through line by line for the moments where these tokens are being tokenized
                 observe that ; will be tokenized
-                
