@@ -1,0 +1,10 @@
+breeuhhh
+
+development
+    1
+
+
+bugs
+    last few semicolons not being tokenized
+        they are tokenized if manually step-through in debug
+        they are not tokenized if program executed or debug goes through them without manual stepping
