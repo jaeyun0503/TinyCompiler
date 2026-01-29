@@ -5,24 +5,23 @@ void function jaegoat(aphelios, nautilus); var adc, support; {
     let adc <- aphelios;
     let support <- nautilus;
     if adc != support then
-        let support = support * 2;
+        let support <- support * 2;
     else
-        let adc = adc / 2;
+        let adc <- adc / 2;
     fi;
     if adc < support then
-        let support = 1000 * 2;
+        let support <- 1000 * 2;
+    fi;
     return;
 }
 
 {
 let zoink67 <- 67;
 let legalegends <- 200;
-if zoink67 < legalegends then
-    let legalegends = legalegends + zoink67;
+if zoink67 <= legalegends then
+    let legalegends <- legalengends + zoink67;
 else
-    let legalegends = 100;
+    let legalegends <- 2018;
 fi;
 }
-
-
 .
