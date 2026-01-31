@@ -69,22 +69,22 @@ class Identifier:
 
 class FileStream:
     def __init__(self, file_name: str):
-        self.file = open(file_name, "r")
+        with open(file_name, "r", encoding="utf-8") as file:
+            self.file = file.read()
+        self.position = 0
         self.token = None
     
-    def peek_char(self):
-        pos = self.file.tell()
-        char = self.file.read(1)
-        self.file.seek(pos)
-        return char
+    def peek_char(self) -> str:
+        return self.file[self.position] if self.position < len(self.file) else ""
     
-    def next_char(self):
-        return self.file.read(1)
+    def next_char(self) -> None:
+        self.position += 1
+        return
     
-    def peek_token(self):
+    def peek_token(self) -> str:
         return self.token
         
-    def next_token(self):
+    def next_token(self) -> None:
         buffer = []
         state = State.EMPTY
         
@@ -92,7 +92,8 @@ class FileStream:
             self.next_char()
 
         while True:
-            buffer.append(self.file.read(1))
+            buffer.append(self.peek_char())
+            self.next_char()
             match state:
                 case State.EMPTY:
                     if buffer[-1].isalpha():
@@ -136,12 +137,12 @@ class FileStream:
                 case State.IDENTIFIER:
                     if not buffer[-1].isalnum():
                         buffer.pop()
-                        self.file.seek(self.file.tell()-1)
+                        self.position -= 1
                         break
                 case State.NUMBER:
                     if not buffer[-1].isnumeric():
                         buffer.pop()
-                        self.file.seek(self.file.tell()-1)
+                        self.position -=1
                         break
                 case State.EQUAL:
                     if buffer[-1] == "=":
@@ -418,8 +419,6 @@ def interpret(file_name: str) -> None:
     # actual program execution
     file_stream.next_token()
     computation()
-
-    file_stream.close()
 
 
 if __name__ == "__main__":
