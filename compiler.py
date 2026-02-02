@@ -1,187 +1,24 @@
-from enum import IntEnum, Enum, auto
+from tokenizer import Keyword, Token, SourceCode
 
-class Keyword(IntEnum):
-    LET = auto()
-    CALL = auto()
-    IF = auto()
-    THEN = auto()
-    ELSE = auto()
-    FI = auto()
-    WHILE = auto()
-    DO = auto()
-    OD = auto()
-    RETURN = auto()
-    VAR = auto()
-    VOID = auto()
-    FUNCTION = auto()
-    MAIN = auto()
-
-class State(IntEnum):
-    EMPTY = auto()
-    IDENTIFIER = auto()
-    NUMBER = auto()
-    EQUAL = auto()
-    NOT_EQUAL = auto()
-    LESS_THAN = auto()
-    GREATER_THAN = auto()
-
-class Keyword(str, Enum):
-    LET = "let"
-    CALL = "call"
-    IF = "if"
-    THEN = "then"
-    ELSE = "else"
-    FI = "fi"
-    WHILE = "while"
-    DO = "do"
-    OD = "od"
-    RETURN = "return"
-    VAR = "var"
-    VOID = "void"
-    FUNCTION = "function"
-    MAIN = "main"
-
-class Token(str, Enum):
-    ASSIGNMENT = "<-"
-    LT = "<"
-    LEQ = "<="
-    GT = ">"
-    GEQ = ">="
-    NEQ = "!="
-    EQ = "=="
-    PLUS = "+"
-    MINUS = "-"
-    MULTIPLY = "*"
-    DIVIDE = "/"
-    SEPARATOR = ";"
-    COMMA = ","
-    OPEN_PARENTHESES = "("
-    CLOSE_PARENTHESES = ")"
-    OPEN_BRACE = "{"
-    CLOSE_BRACE = "}"
-
-class Identifier:
+class ThingThatTracksUserDefinedStuffAndOtherThings:
+    # This class' features will be integrated into another class later
     def __init__(self):
         self.keywords = {keyword.value for keyword in Token}
         self.variables = dict()
         self.predefined_functions = {"InputNum", "OutputNum", "OutputNewLine"}
         self.functions = self.predefined_functions.copy()
 
-class FileStream:
-    def __init__(self, file_name: str):
-        with open(file_name, "r", encoding="utf-8") as file:
-            self.file = file.read()
-        self.position = 0
-        self.token = None
-    
-    def peek_char(self) -> str:
-        return self.file[self.position] if self.position < len(self.file) else ""
-    
-    def next_char(self) -> None:
-        self.position += 1
-        return
-    
-    def peek_token(self) -> str:
-        return self.token
-        
-    def next_token(self) -> None:
-        buffer = []
-        state = State.EMPTY
-        
-        while self.peek_char().isspace():
-            self.next_char()
-
-        while True:
-            buffer.append(self.peek_char())
-            self.next_char()
-            match state:
-                case State.EMPTY:
-                    if buffer[-1].isalpha():
-                        state = State.IDENTIFIER
-                    elif buffer[-1].isdigit():
-                        state = State.NUMBER
-                    elif buffer[-1] == "<":
-                        state = State.LESS_THAN
-                    elif buffer[-1] == ";":
-                        break
-                    elif buffer[-1] == ".":
-                        break
-                    elif buffer[-1] == ",":
-                        break
-                    elif buffer[-1] == "+":
-                        break
-                    elif buffer[-1] == "-":
-                        break
-                    elif buffer[-1] == "*":
-                        break
-                    elif buffer[-1] == "/":
-                        break
-                    elif buffer[-1] == "(":
-                        break
-                    elif buffer[-1] == ")":
-                        break
-                    elif buffer[-1] == "{":
-                        break
-                    elif buffer[-1] == "}":
-                        break
-                    elif buffer[-1] == "=":
-                        state = State.EQUAL
-                    elif buffer[-1] == "!":
-                        state = State.NOT_EQUAL
-                    elif buffer[-1] == ">":
-                        state = State.GREATER_THAN
-                    elif buffer[-1] == "":
-                        break
-                    else:
-                        raise SyntaxError("You missed something")
-                case State.IDENTIFIER:
-                    if not buffer[-1].isalnum():
-                        buffer.pop()
-                        self.position -= 1
-                        break
-                case State.NUMBER:
-                    if not buffer[-1].isnumeric():
-                        buffer.pop()
-                        self.position -=1
-                        break
-                case State.EQUAL:
-                    if buffer[-1] == "=":
-                        break
-                case State.LESS_THAN:
-                    if buffer[-1] == "-":
-                        break
-                    elif buffer[-1] == "=":
-                        break
-                    elif buffer[-1] == " ":
-                        buffer.pop()
-                        break
-                    else:
-                        break
-                case State.NOT_EQUAL:
-                    if buffer[-1] == "=":
-                        break
-                case State.GREATER_THAN:
-                    if buffer[-1] == "=":
-                        break
-                    else:
-                        break
-            
-        self.token = "".join(buffer)
-        return
-            
-    def close(self):
-        self.file.close()
-
 
 def emit(string: str) -> None:
+    # Not used currently
     print(string)
     with open("interpreter_output.txt", "a") as file:
         file.write(f"{string}\n")
         
 
-def interpret(file_name: str) -> None:
-    file_stream = FileStream(file_name)
-    identifier = Identifier()
+def compile(file_name: str) -> None:
+    file_stream = SourceCode(file_name)
+    my_thing_be_tracking_YO = ThingThatTracksUserDefinedStuffAndOtherThings()
     
     def consume_whitespace() -> None:
         while file_stream.peek_char().isspace():
@@ -232,7 +69,7 @@ def interpret(file_name: str) -> None:
     def number() -> int:
         number = file_stream.peek_token()
         if not number.isdigit():
-            number = identifier.variables[number]
+            number = my_thing_be_tracking_YO.variables[number]
         file_stream.next_token()
         return int(number)
     
@@ -244,7 +81,7 @@ def interpret(file_name: str) -> None:
         if file_stream.peek_token() != Token.ASSIGNMENT:
             raise SyntaxError(f"Expected \'<-\' following \'let\' + identifier \'{variable_name}\'")
         file_stream.next_token() # consume Token.ASSIGNMENT
-        identifier.variables[variable_name] = expression()
+        my_thing_be_tracking_YO.variables[variable_name] = expression()
     
     def function_call() -> None:
         file_stream.next_token() # consume Keyword.CALL
@@ -417,11 +254,11 @@ def interpret(file_name: str) -> None:
     print(tokens)
 
     # actual program execution
-    file_stream = FileStream(file_name)
+    file_stream = SourceCode(file_name)
     file_stream.next_token()
     computation()
 
 
 if __name__ == "__main__":
     from pathlib import Path
-    interpret(Path(__file__).resolve().parent / "interpretee.txt")
+    compile(Path(__file__).resolve().parent / "interpretee.txt")
