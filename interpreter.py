@@ -409,14 +409,15 @@ def interpret(file_name: str) -> None:
         if file_stream.peek_token() != ".":
             raise SyntaxError(f"Expected \'.\' to end computation")
     
-    # tokens = []
-    # file_stream.next_token()
-    # while file_stream.peek_token() != "":
-    #     tokens.append(file_stream.peek_token())
-    #     file_stream.next_token()
-    # print(tokens)
+    tokens = []
+    file_stream.next_token()
+    while file_stream.peek_token() != "":
+        tokens.append(file_stream.peek_token())
+        file_stream.next_token()
+    print(tokens)
 
     # actual program execution
+    file_stream = FileStream(file_name)
     file_stream.next_token()
     computation()
 
