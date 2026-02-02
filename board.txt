@@ -11,6 +11,7 @@ development
 bugs
     [SOLVED] last few semicolons not being tokenized
         resolution: loading file contents into a string to work with rather than using file pointers
+        cause: something wrong with python file pointers (seek, tell methods)
         they are tokenized if manually step-through in debug
         they are not tokenized if program executed or debug goes through them without manual stepping
         
