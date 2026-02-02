@@ -1,11 +1,16 @@
 breeuhhh
 
 development
-    test while statements and function calls
+    generating and emitting SSA
+        consequent code optimization
+            copy propagation
+            subexpression elimination
+            dead code elimination
 
 
 bugs
-    last few semicolons not being tokenized
+    [SOLVED] last few semicolons not being tokenized
+        resolution: loading file contents into a string to work with rather than using file pointers
         they are tokenized if manually step-through in debug
         they are not tokenized if program executed or debug goes through them without manual stepping
         
