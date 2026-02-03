@@ -1,77 +1,170 @@
+from sys import stdout as STDOUT
+from enum import Enum
+from pathlib import Path
+
 from tokenizer import Keyword, Token, SourceCode
+from output import OutStream, open_files, close_files
 
-class ThingThatTracksUserDefinedStuffAndOtherThings:
-    # This class' features will be integrated into another class later
-    def __init__(self):
-        self.keywords = {keyword.value for keyword in Token}
-        self.variables = dict()
-        self.predefined_functions = {"InputNum", "OutputNum", "OutputNewLine"}
-        self.functions = self.predefined_functions.copy()
+# MODIFY TO TARGET SOURCE CODE FILE
+SOURCE_CODE_FILE_NAME = "source_code_simple_math.txt"
 
+OUTPUT_TO_CONSOLE = True
+ADDITIONAL_OUTPUT_FILE_NAMES = ["lala.txt"]
 
-def emit(string: str) -> None:
-    # Not used currently
-    print(string)
-    with open("interpreter_output.txt", "a") as file:
-        file.write(f"{string}\n")
-        
+class Operator(Enum):
+    CONST = "const #"
+    ADD = "add"
+    SUB = "sub"
+    MUL = "mul"
+    DIV = "div"
+    CMP = "cmp"
+    PHI = "phi"
+    END = "end"
+    BRANCH = "bra"
+    BRANCH_NOT_EQUAL = "bne"
+    BRANCH_EQUAL = "beq"
+    BRANCH_LESS_THAN_EQUAL = "ble"
+    BRANCH_LESS_THAN = "blt"
+    BRANCH_GREATER_THAN_EQUAL = "bge"
+    BRANCH_GREATER_THAN = "bgt"
+    READ = "read"
+    WRITE = "write"
+    WRITE_NEW_LINE = "writeNL"
+    JUMP_SUBROUTINE = "jsr"
+    RETURN = "return"
+    GET_PARAMETER_1 = "getpar1"
+    GET_PARAMETER_2 = "getpar2"
+    GET_PARAMETER_3 = "getpar3"
+    SET_PARAMETER_1 = "setpar1"
 
-def compile(file_name: str) -> None:
-    file_stream = SourceCode(file_name)
-    my_thing_be_tracking_YO = ThingThatTracksUserDefinedStuffAndOtherThings()
+    def __str__(self) -> str:
+        return self.value
     
-    def consume_whitespace() -> None:
-        while file_stream.peek_char().isspace():
-            file_stream.next_char()
+
+class IntermediateRepresentation:
+    def __init__(self):
+        self.basic_blocks = {0: []}
+        self._basic_block_number = 1
+        self._ssa_value = 1
+        self._ssa_const_value = -1
+        self.ssa_associations = dict()
+
+        self.variables = dict()
+        self._predefined_functions = {"InputNum", "OutputNum", "OutputNewLine"}
+        self.functions = self._predefined_functions.copy()
+        self.constants = set()
+
+    def fetch_next_ssa_value(self) -> int:
+        """
+        Returns next available SSA value and
+        prepares next available SSA value
+        """
+        self._ssa_value += 1
+        return self._ssa_value - 1
+    
+    def fetch_next_ssa_const_value(self) -> int:
+        """
+        Returns next avaiable SSA value for constants and
+        prepares next available SSA value for constants
+        """
+        self._ssa_const_value -= 1
+        return self._ssa_const_value + 1
+    
+    def fetch_next_basic_block_number(self) -> int:
+        self._basic_block_number += 1
+        return self._basic_block_number - 1
+    
+    def get_ssa_value(self, operand: int | str) -> int:
+        if operand in self.ssa_associations:
+            return self.ssa_associations[operand]
+        else: # should technically only be constants
+            ssa_value = self.fetch_next_ssa_const_value()
+            self.ssa_associations[operand] = ssa_value
+            instruction = self.compose_instruction(ssa_value, Operator.CONST, operand)
+            self.basic_blocks[0].append(instruction)
+            emit(instruction)
+            return ssa_value
+
+    def map_operation(self, operation: str) -> str:
+        # unused
         return
 
+    def compose_instruction(self, line_number: int, operator: str, *operands) -> str:
+        x, y, *_ = (*operands, "", "")
+        space = "" if operator == Operator.CONST else " "
+        return f"{line_number}: {operator}{space}{x} {y}".rstrip()
+        
+    def emit_instruction(self, instruction: str) -> None:
+        # unused
+        print(instruction)
+        # write to object file
+
+def emit(content: str = "") -> None:
+    print(content, file=outstream)
+
+outstream = None
+def compile(file_name: str = None) -> None:
+    # Data structures for parsing and IR generation
+    file_stream = SourceCode(Path(__file__).resolve().parent / Path(SOURCE_CODE_FILE_NAME))
+    intrepr = IntermediateRepresentation()
+
+    # Output handling
+    OBJECT_FILE_PATH = Path(__file__).resolve().parent / Path(SOURCE_CODE_FILE_NAME).with_suffix(".o")
+    output_file_paths = [OBJECT_FILE_PATH]
+    output_file_paths.extend([Path(__file__).resolve().parent / file_name for file_name in ADDITIONAL_OUTPUT_FILE_NAMES])
+    output_streams = open_files(output_file_paths)
+    output_streams.append(STDOUT) if OUTPUT_TO_CONSOLE else None
+    global outstream
+    outstream = OutStream(*output_streams)
 
     ## EXPRESSION PARSING
     def expression() -> int:
-        result = term()
+        ssa_value = term()
         while file_stream.peek_token() in ["+", "-"]:
             token = file_stream.peek_token()
             file_stream.next_token()
+            new_ssa_value = intrepr.fetch_next_ssa_value()
             match token:
-                case "+":
-                    result += term()
-                case "-":
-                    result -= term()
-        return result
+                case Token.PLUS:
+                    emit(intrepr.compose_instruction(new_ssa_value, Operator.ADD, ssa_value, term()))
+                case Token.MINUS:
+                    emit(intrepr.compose_instruction(new_ssa_value, Operator.SUB, ssa_value, term()))
+            ssa_value = new_ssa_value
+        return ssa_value
 
     def term() -> int:
-        result = factor()
+        ssa_value = factor()
         while file_stream.peek_token() in ["*", "/"]:
             token = file_stream.peek_token()
             file_stream.next_token()
+            new_ssa_value = intrepr.fetch_next_ssa_value()
             match token:
-                case "*":
-                    result *= factor()
-                case "/":
-                    result /= factor()
-        return result
+                case Token.MULTIPLY:
+                    emit(intrepr.compose_instruction(new_ssa_value, Operator.MUL, ssa_value, factor()))
+                case Token.DIVIDE:
+                    emit(intrepr.compose_instruction(new_ssa_value, Operator.DIV, ssa_value, factor()))
+            ssa_value = new_ssa_value
+        return ssa_value
     
     def factor() -> int:
-        result = None
+        ssa_value = None
         if file_stream.peek_token() == "(":
             file_stream.next_token()
-            result = expression()
+            ssa_value = expression()
             if file_stream.peek_token() == ")":
                 file_stream.next_token()
             else:
                 raise SyntaxError(f"Factor: no )")
         elif file_stream.peek_token().isalnum():
-            result = number()
+            ssa_value = number()
         else:
             raise SyntaxError(f"Factor no digits")
-        return result
+        return ssa_value
 
     def number() -> int:
-        number = file_stream.peek_token()
-        if not number.isdigit():
-            number = my_thing_be_tracking_YO.variables[number]
+        operand = file_stream.peek_token()
         file_stream.next_token()
-        return int(number)
+        return intrepr.get_ssa_value(operand)
     
     ## STATEMENT PARSING
     def assignment() -> None:
@@ -81,7 +174,7 @@ def compile(file_name: str) -> None:
         if file_stream.peek_token() != Token.ASSIGNMENT:
             raise SyntaxError(f"Expected \'<-\' following \'let\' + identifier \'{variable_name}\'")
         file_stream.next_token() # consume Token.ASSIGNMENT
-        my_thing_be_tracking_YO.variables[variable_name] = expression()
+        intrepr.ssa_associations[variable_name] = expression() # map variable_name to SSA value
     
     def function_call() -> None:
         file_stream.next_token() # consume Keyword.CALL
@@ -142,7 +235,6 @@ def compile(file_name: str) -> None:
         return
 
     def statement_sequence() -> None:
-        #//FLAG PARSE STATEMENTS TO ACTUALLY DO SOMETHING
         statement()
         while file_stream.peek_token() == Token.SEPARATOR:
             file_stream.next_token()
@@ -180,11 +272,11 @@ def compile(file_name: str) -> None:
         variable_names = []
         if file_stream.peek_token() == Keyword.VAR:
             file_stream.next_token() # consume Keyword.VAR
-            variable_names.append(file_stream.peek_token()) # var_name
+            variable_names.append(file_stream.peek_token()) # save var_name
             file_stream.next_token()
             while file_stream.peek_token() == Token.COMMA: # , or ;
                 file_stream.next_token()
-                variable_names.append(file_stream.peek_token()) # var_name
+                variable_names.append(file_stream.peek_token()) # save var_name
                 file_stream.next_token()
             if file_stream.peek_token() != Token.SEPARATOR:
                 raise SyntaxError(f"Expected \';\' to end variable declaration")
@@ -229,8 +321,10 @@ def compile(file_name: str) -> None:
             raise SyntaxError(f"Expected \';\' to end function body")
         file_stream.next_token()
         
-
     def computation() -> None:
+        """
+        Parses entire source code
+        """
         if file_stream.peek_token() == Keyword.MAIN:
             file_stream.next_token()
             variables = variable_declaration()
@@ -246,19 +340,21 @@ def compile(file_name: str) -> None:
         if file_stream.peek_token() != ".":
             raise SyntaxError(f"Expected \'.\' to end computation")
     
-    tokens = []
-    file_stream.next_token()
-    while file_stream.peek_token() != "":
-        tokens.append(file_stream.peek_token())
-        file_stream.next_token()
-    print(tokens)
+    # tokens = []
+    # file_stream.next_token()
+    # while file_stream.peek_token() != "":
+    #     tokens.append(file_stream.peek_token())
+    #     file_stream.next_token()
+    # print(tokens)
 
     # actual program execution
-    file_stream = SourceCode(file_name)
     file_stream.next_token()
     computation()
+    emit()
 
+    # closing all output streams except STDOUT
+    close_files(*output_streams[1:])
+    
 
 if __name__ == "__main__":
-    from pathlib import Path
-    compile(Path(__file__).resolve().parent / "interpretee.txt")
+    compile()

@@ -1,0 +1,16 @@
+main
+var zoink67, legalegends;
+
+{
+let zoink67 <- 67;
+let legalegends <- 200;
+
+let zoink67 <- 1;
+let zoink67 <- zoink67 + zoink67;
+
+let zoink67 <- 1;
+let zoink67 <- (zoink67 + zoink67) * (zoink67 + zoink67);
+
+
+}
+.
