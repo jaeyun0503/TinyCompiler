@@ -8,8 +8,9 @@ from output import OutStream, open_files, close_files
 # MODIFY TO TARGET SOURCE CODE FILE
 SOURCE_CODE_FILE_NAME = "source_code_simple_math.txt"
 
+# MODIFY TO CHANGE OUTPUT STREAMS
 OUTPUT_TO_CONSOLE = True
-ADDITIONAL_OUTPUT_FILE_NAMES = ["lala.txt"]
+ADDITIONAL_OUTPUT_FILE_NAMES = []
 
 class Operator(Enum):
     CONST = "const #"
