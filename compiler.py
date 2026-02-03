@@ -56,18 +56,10 @@ class IntermediateRepresentation:
         self.constants = set()
 
     def fetch_next_ssa_value(self) -> int:
-        """
-        Returns next available SSA value and
-        prepares next available SSA value
-        """
         self._ssa_value += 1
         return self._ssa_value - 1
     
     def fetch_next_ssa_const_value(self) -> int:
-        """
-        Returns next avaiable SSA value for constants and
-        prepares next available SSA value for constants
-        """
         self._ssa_const_value -= 1
         return self._ssa_const_value + 1
     
@@ -86,20 +78,12 @@ class IntermediateRepresentation:
             emit(instruction)
             return ssa_value
 
-    def map_operation(self, operation: str) -> str:
-        # unused
-        return
-
     def compose_instruction(self, line_number: int, operator: str, *operands) -> str:
         x, y, *_ = (*operands, "", "")
         space = "" if operator == Operator.CONST else " "
         return f"{line_number}: {operator}{space}{x} {y}".rstrip()
         
-    def emit_instruction(self, instruction: str) -> None:
-        # unused
-        print(instruction)
-        # write to object file
-
+        
 def emit(content: str = "") -> None:
     print(content, file=outstream)
 
