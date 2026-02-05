@@ -2,8 +2,9 @@ breeuhhh
 
 development
     generating and emitting SSA
+        while-do
+
         consequent code optimization
-            copy propagation
             subexpression elimination
             dead code elimination
 
