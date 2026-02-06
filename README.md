@@ -9,3 +9,7 @@
     Run compiler.py
     IR generation will be outputted to [file name].i
 
+## Visualizing the intermediate representation
+    Copy and paste contents in [file_name].dot into a DOT graphing engine
+        https://dreampuf.github.io/GraphvizOnline/?engine=dot#digraph%20G%20%7B%0A%7D
+

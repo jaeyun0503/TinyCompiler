@@ -12,6 +12,7 @@ SOURCE_CODE_FILE_NAME = "source_code_if_else.txt"
 OUTPUT_TO_CONSOLE = True
 ADDITIONAL_OUTPUT_FILE_NAMES = []
 
+
 class Operator(Enum):
     CONST = "const #"
     ADD = "add"
@@ -70,8 +71,10 @@ class Instruction():
         self.operand_2 = operand_2
 
     def __str__(self) -> str:
-        space = "" if self.operator == Operator.CONST else " "
-        return f"{self.ssa_value}: {self.operator}{space}{self.operand_1} {self.operand_2}".rstrip()
+        if self.operator == Operator.CONST:
+            return f"{self.ssa_value}: {self.operator}{self.operand_1}"
+        else:
+            return f"{self.ssa_value}: {self.operator} {self.operand_1} {self.operand_2}".rstrip()
     
     def __repr__(self) -> str:
         return self.__str__()
@@ -82,7 +85,10 @@ class BasicBlock():
         self.instructions = []
         self.join_instructions = []
         self.parent_blocks = set()
+        #self.branch_block = None
+        #self.fall_through_block = None
         self.variables_to_most_recent_ssa_value = dict()
+        self.is_join_block = False
     
     def get_starting_ssa_value(self) -> int:
         if self.join_instructions:
@@ -98,9 +104,77 @@ class BasicBlock():
     def __repr__(self) -> str:
         return self.__str__()
     
-    def get_instructions(self) -> list[str]:
+    def get_instructions(self) -> list[Instruction]:
         return self.join_instructions + self.instructions
 
+dot_outstream = None
+class Dot():
+    """
+    Generates digraph representation of IR using DOT graph language
+    """
+
+    def __init__(self):
+        self.basic_blocks = set()
+        self.arrows = []
+
+    def declare_block(self, bb: BasicBlock) -> None:
+        self.basic_blocks.add(bb)
+
+    def declare_arrow(self, from_bb: BasicBlock, to_bb: BasicBlock) -> None:
+        self.arrows.append(self.translate_arrow(from_bb, to_bb))
+    
+    def declare_fall_through_arrow(self, from_bb: BasicBlock, to_bb: BasicBlock) -> None:
+        self.arrows.append(self.translate_fall_through_arrow(from_bb, to_bb))
+
+    def declare_branch_arrow(self, from_bb: BasicBlock, to_bb: BasicBlock) -> None:
+        self.arrows.append(self.translate_branch_arrow(from_bb, to_bb))
+    
+    def declare_dom_arrow(self, from_bb: BasicBlock, to_bb: BasicBlock) -> None:
+        self.arrows.append(self.translate_dom_arrow(from_bb, to_bb))
+
+    def emit_program(self) -> None:
+        print(self.__str__(), file=dot_outstream)
+
+    def __str__(self) -> str:
+        content = []
+        for bb in self.basic_blocks:
+            if bb.is_join_block:
+                content.append(Dot.translate_join_block(bb))
+            else:
+                content.append(Dot.translate_block(bb))
+        content.extend(self.arrows)
+        newline = '\n'
+        return f"digraph G {{\n{newline.join(content)}\n}}"
+
+    @classmethod
+    def translate_block(cls, bb: BasicBlock) -> str:
+        bbn = bb.number
+        instructions = "|".join([str(i) for i in bb.get_instructions()])
+        return f"bb{bbn} [shape=record,label=\"<b>BB{bbn}|{{{instructions}}}\"];"
+    
+    @classmethod
+    def translate_join_block(cls, bb: BasicBlock) -> str:
+        bbn = bb.number
+        instructions = "|".join([str(i) for i in bb.get_instructions()])
+        return f"bb{bbn} [shape=record,label=\"<b>join\\nBB{bbn}|{{{instructions}}}\"];"    
+    
+    @classmethod
+    def translate_arrow(cls, from_bb: BasicBlock, to_bb: BasicBlock) -> str:
+        return f"bb{from_bb.number}:s -> bb{to_bb.number}:n;"
+    
+    @classmethod
+    def translate_fall_through_arrow(cls, from_bb: BasicBlock, to_bb: BasicBlock) -> str:
+        return f"bb{from_bb.number}:s -> bb{to_bb.number}:n [label=\"fall-through\"];"
+    
+    @classmethod
+    def translate_branch_arrow(cls, from_bb: BasicBlock, to_bb: BasicBlock) -> str:
+        return f"bb{from_bb.number}:s -> bb{to_bb.number}:n [label=\"branch\"];"
+    
+    @classmethod
+    def translate_dom_arrow(cls, from_bb: BasicBlock, to_bb: BasicBlock) -> str:
+        return f"bb{from_bb.number}:s -> bb{to_bb.number}:b [color=blue, style=dotted, label=\"dom\"];"
+
+object_outstream = None
 class IntermediateRepresentation:
     def __init__(self):
         const_basic_block = BasicBlock(0)
@@ -149,34 +223,38 @@ class IntermediateRepresentation:
             self.ssa_associations[operand] = ssa_value
             instruction = Instruction(ssa_value, Operator.CONST, operand)
             self.basic_blocks[0].instructions.append(instruction)
-            #emit(instruction)
             return ssa_value
     
     def emit_program(self) -> None:
         for basic_block in self.basic_blocks.keys():
-            emit(f"# Basic Block {basic_block}")
+            emit(f"Basic Block {basic_block}", outstream=object_outstream)
             for instruction in self.basic_blocks[basic_block].get_instructions():
-                emit(instruction)
-            emit()
+                emit(instruction, outstream=object_outstream)
+            emit(outstream=object_outstream)
         
-        
-def emit(content: str = "") -> None:
+def emit(content: str = "", outstream=None) -> None:
     print(content, file=outstream)
 
-outstream = None
 def compile(file_name: str = None) -> None:
-    # Data structures for parsing and IR generation
+    # Data structures for parsing, IR generation, and visualization
     file_stream = SourceCode(Path(__file__).resolve().parent / Path(SOURCE_CODE_FILE_NAME))
     intrepr = IntermediateRepresentation()
+    dot = Dot()
 
     # Output handling
     OBJECT_FILE_PATH = Path(__file__).resolve().parent / Path(SOURCE_CODE_FILE_NAME).with_suffix(".o")
-    output_file_paths = [OBJECT_FILE_PATH]
-    output_file_paths.extend([Path(__file__).resolve().parent / file_name for file_name in ADDITIONAL_OUTPUT_FILE_NAMES])
+    DOT_FILE_PATH = Path(__file__).resolve().parent / Path(SOURCE_CODE_FILE_NAME).with_suffix(".dot")
+    output_file_paths = [OBJECT_FILE_PATH, DOT_FILE_PATH]
+    #output_file_paths.extend([Path(__file__).resolve().parent / file_name for file_name in ADDITIONAL_OUTPUT_FILE_NAMES])
     output_streams = open_files(output_file_paths)
-    output_streams.append(STDOUT) if OUTPUT_TO_CONSOLE else None
-    global outstream
-    outstream = OutStream(*output_streams)
+    object_output_streams = [STDOUT] if OUTPUT_TO_CONSOLE else []
+    dot_output_streams = [STDOUT] if OUTPUT_TO_CONSOLE else []
+    object_output_streams.append(output_streams[0])
+    dot_output_streams.append(output_streams[1])
+    global object_outstream
+    global dot_outstream
+    object_outstream = OutStream(*object_output_streams)
+    dot_outstream = OutStream(*dot_output_streams)
 
     ## EXPRESSION PARSING
     def expression(basic_block: BasicBlock) -> int:
@@ -263,10 +341,15 @@ def compile(file_name: str = None) -> None:
     def if_then_else_fi(if_basic_block: BasicBlock) -> None:
         then_basic_block = intrepr.create_new_basic_block()
         join_basic_block = intrepr.create_new_basic_block()
+        join_basic_block.is_join_block = True
         intrepr.basic_blocks[then_basic_block.number] = then_basic_block
         intrepr.basic_blocks[join_basic_block.number] = join_basic_block
         then_basic_block.parent_blocks.add(if_basic_block)
         join_basic_block.parent_blocks.add(then_basic_block)
+        dot.declare_block(if_basic_block)
+        dot.declare_block(then_basic_block)
+        dot.declare_block(join_basic_block)
+        dot.declare_fall_through_arrow(if_basic_block, then_basic_block)
 
         # processing condition clause
         if file_stream.peek_token() != Keyword.IF:
@@ -295,11 +378,13 @@ def compile(file_name: str = None) -> None:
             file_stream.next_token() # consume Keyword.ELSE
             else_basic_block = intrepr.create_new_basic_block()
             else_basic_block.parent_blocks.add(if_basic_block)
+            dot.declare_block(else_basic_block)
             intrepr.basic_blocks[else_basic_block.number] = else_basic_block
             statement_sequence(else_basic_block)
             branch_from_if_to_else_instruction = Instruction(branch_instruction_ssa_value, branch_operator, compare_ssa_value, else_basic_block.get_starting_ssa_value())
             if_basic_block.instructions.append(branch_from_if_to_else_instruction)
-            #emit(branch_to_else_clause_instruction)
+            dot.declare_branch_arrow(if_basic_block, else_basic_block)
+            dot.declare_fall_through_arrow(else_basic_block, join_basic_block)
         if file_stream.peek_token() != Keyword.FI:
             raise SyntaxError(f"Expected \'fi\' token")
         file_stream.next_token()
@@ -324,9 +409,12 @@ def compile(file_name: str = None) -> None:
         if else_basic_block:
             branch_instruction_from_then_to_join = Instruction(intrepr.create_new_ssa_value(), Operator.BRANCH, join_basic_block.get_starting_ssa_value())
             then_basic_block.instructions.append(branch_instruction_from_then_to_join)
+            dot.declare_branch_arrow(then_basic_block, join_basic_block)
         else:
             branch_instruction_from_if_to_join = Instruction(intrepr.create_new_ssa_value(), Operator.BRANCH, join_basic_block.get_starting_ssa_value())
             if_basic_block.instructions.append(branch_instruction_from_if_to_join)
+            dot.declare_branch_arrow(if_basic_block, join_basic_block)
+            dot.declare_fall_through_arrow(then_basic_block, join_basic_block)
 
         return
         
@@ -361,11 +449,11 @@ def compile(file_name: str = None) -> None:
             file_stream.next_token()
             if file_stream.peek_token() == Token.CLOSE_BRACE:
                 break
-            statement(basic_block) # discard subsequent ssa values; want STARTING only
+            statement(basic_block)
         return
 
     def statement(basic_block: BasicBlock) -> None:
-        while True: # do-while loop for parsing statements
+        while True: # loop for parsing statements
             basic_block = intrepr.get_potential_join_basic_block(basic_block)
             match file_stream.peek_token():
                 case Keyword.LET:
@@ -455,6 +543,9 @@ def compile(file_name: str = None) -> None:
             if file_stream.peek_token() != Token.OPEN_BRACE:
                 raise SyntaxError(f"Expected \'{{\' to open statement sequence")
             file_stream.next_token()
+            dot.declare_block(intrepr.basic_blocks[0])
+            dot.declare_block(intrepr.basic_blocks[1])
+            dot.declare_arrow(intrepr.basic_blocks[0], intrepr.basic_blocks[1])
             statement_sequence(intrepr.basic_blocks[1])
             if file_stream.peek_token() != Token.CLOSE_BRACE:
                 raise SyntaxError(f"Expected \'}}\' to close statement sequence")
@@ -465,11 +556,13 @@ def compile(file_name: str = None) -> None:
     # Begin compilation
     file_stream.next_token()
     computation()
+
+    # Handling output
     intrepr.emit_program()
-    #emit()
+    dot.emit_program()
 
     # closing all output streams except STDOUT
-    close_files(*output_streams[1:])
+    close_files(*output_streams)
     
 
 if __name__ == "__main__":
