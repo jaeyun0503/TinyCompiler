@@ -15,7 +15,7 @@ if zoink67 < legalegends then
     let zoink67 <- 0;
 fi
 
-let zoink67 <- 67;
+let zoink67 <- 67 + 67;
 
 }
 .

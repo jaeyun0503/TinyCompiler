@@ -1,0 +1,25 @@
+main
+var zoink67, legalegends;
+
+{
+let zoink67 <- 1;
+let legalegends <- 2;
+
+if 1 < 2 then
+    let zoink67 <- 1 + 1 + 1 + 1;
+    if 1 < 2 then
+        let zoink67 <- 0 + 0;
+    else
+        let zoink67 <- 67 + 67;
+    fi
+else
+    if 67 < 67 then
+        let zoink67 <- 67 + 67;
+    else
+        let zoink67 <- 67 + 67;
+    fi
+    let zoink67 <- 67 + 67;
+fi
+
+}
+.
