@@ -243,8 +243,8 @@ def compile(file_name: str = None) -> None:
     # Output handling
     OBJECT_FOLDER_NAME = "o"
     DOT_FOLDER_NAME = "dot"
-    Path(OBJECT_FOLDER_NAME).mkdir(parents=True, exist_ok=True)
-    Path(DOT_FOLDER_NAME).mkdir(parents=True, exist_ok=True)
+    Path(Path(__file__).resolve().parent / OBJECT_FOLDER_NAME).mkdir(parents=True, exist_ok=True)
+    Path(Path(__file__).resolve().parent / DOT_FOLDER_NAME).mkdir(parents=True, exist_ok=True)
     OBJECT_FILE_PATH = Path(__file__).resolve().parent / OBJECT_FOLDER_NAME / Path(SOURCE_CODE_FILE_NAME).with_suffix(".o")
     DOT_FILE_PATH = Path(__file__).resolve().parent / DOT_FOLDER_NAME / Path(SOURCE_CODE_FILE_NAME).with_suffix(".dot")
     output_file_paths = [OBJECT_FILE_PATH, DOT_FILE_PATH]
