@@ -100,6 +100,9 @@ class SourceCode:
                 case State.GREATER_THAN:
                     if buffer[-1] == "=":
                         break
+                    elif buffer[-1] == " ":
+                        buffer.pop()
+                        break
                     else:
                         break
             
@@ -137,12 +140,12 @@ class Keyword(str, Enum):
 
 class Token(str, Enum):
     ASSIGNMENT = "<-"
-    LT = "<"
-    LEQ = "<="
-    GT = ">"
-    GEQ = ">="
-    NEQ = "!="
-    EQ = "=="
+    LESS_THAN = "<"
+    LESS_THAN_EQUAL = "<="
+    GREATER_THAN = ">"
+    GREATER_THAN_EQUAL = ">="
+    NOT_EQUAL = "!="
+    EQUAL = "=="
     PLUS = "+"
     MINUS = "-"
     MULTIPLY = "*"

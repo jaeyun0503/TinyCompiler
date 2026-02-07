@@ -6,12 +6,10 @@ from tokenizer import Keyword, Token, SourceCode
 from output import OutStream, open_files, close_files
 
 # MODIFY TO TARGET SOURCE CODE FILE
-SOURCE_CODE_FILE_NAME = "source_code_if_else.txt"
+SOURCE_CODE_FILE_NAME = "if_else_nested_4.txt"
 
-# MODIFY TO CHANGE OUTPUT STREAMS
+# CONSOLE OUTPUT
 OUTPUT_TO_CONSOLE = True
-ADDITIONAL_OUTPUT_FILE_NAMES = []
-
 
 class Operator(Enum):
     CONST = "const #"
@@ -38,6 +36,7 @@ class Operator(Enum):
     GET_PARAMETER_2 = "getpar2"
     GET_PARAMETER_3 = "getpar3"
     SET_PARAMETER_1 = "setpar1"
+    EMPTY_INSTRUCTION = "\<empty\>"
 
     def __str__(self) -> str:
         return self.value
@@ -65,7 +64,7 @@ class Operator(Enum):
 
 class Instruction():
     def __init__(self, ssa_value: int = None, operator: Operator = None, operand_1: str = "", operand_2: str = ""):
-        self.ssa_value = ssa_value
+        self.ssa_value = ssa_value  
         self.operator = operator
         self.operand_1 = operand_1
         self.operand_2 = operand_2
@@ -84,10 +83,8 @@ class BasicBlock():
         self.number = block_number
         self.instructions = []
         self.join_instructions = []
-        self.parent_blocks = set()
-        #self.branch_block = None
-        #self.fall_through_block = None
-        self.variables_to_most_recent_ssa_value = dict()
+        self.cursed_by = []
+        self.variable_to_most_recent_ssa_value = dict()
         self.is_join_block = False
     
     def get_starting_ssa_value(self) -> int:
@@ -143,6 +140,9 @@ class Dot():
             else:
                 content.append(Dot.translate_block(bb))
         content.extend(self.arrows)
+        for bb in self.basic_blocks:
+            for curser_bb in bb.cursed_by:
+                content.append(Dot.translate_dom_arrow(curser_bb, bb))
         newline = '\n'
         return f"digraph G {{\n{newline.join(content)}\n}}"
 
@@ -172,14 +172,13 @@ class Dot():
     
     @classmethod
     def translate_dom_arrow(cls, from_bb: BasicBlock, to_bb: BasicBlock) -> str:
-        return f"bb{from_bb.number}:s -> bb{to_bb.number}:b [color=blue, style=dotted, label=\"dom\"];"
+        return f"bb{from_bb.number}:s -> bb{to_bb.number}:b [color=blue, style=dotted, label=\"dom\", fontcolor=blue];"
 
 object_outstream = None
 class IntermediateRepresentation:
     def __init__(self):
         const_basic_block = BasicBlock(0)
         basic_block_1 = BasicBlock(1)
-        basic_block_1.parent_blocks.add(const_basic_block)
         self.basic_blocks = {0: const_basic_block, 1: basic_block_1}
         self._next_free_basic_block_number = 2
         self._ssa_value = 1
@@ -190,6 +189,7 @@ class IntermediateRepresentation:
         self.functions = self._predefined_functions.copy()
 
         self.join_basic_block = None
+        self.da_stack = []
 
     def create_new_ssa_value(self) -> int:
         self._ssa_value += 1
@@ -200,8 +200,6 @@ class IntermediateRepresentation:
         return self._ssa_const_value + 1
     
     def create_new_basic_block(self) -> BasicBlock:
-        if self._next_free_basic_block_number == 5:
-            print("debug")
         new_basic_block = BasicBlock(self._next_free_basic_block_number)
         self.basic_blocks[self._next_free_basic_block_number] = new_basic_block
         self._next_free_basic_block_number += 1
@@ -237,15 +235,17 @@ def emit(content: str = "", outstream=None) -> None:
 
 def compile(file_name: str = None) -> None:
     # Data structures for parsing, IR generation, and visualization
-    file_stream = SourceCode(Path(__file__).resolve().parent / Path(SOURCE_CODE_FILE_NAME))
+    SOURCE_CODE_FOLDER_NAME = "tiny"
+    file_stream = SourceCode(Path(__file__).resolve().parent / SOURCE_CODE_FOLDER_NAME / Path(SOURCE_CODE_FILE_NAME))
     intrepr = IntermediateRepresentation()
     dot = Dot()
 
     # Output handling
-    OBJECT_FILE_PATH = Path(__file__).resolve().parent / Path(SOURCE_CODE_FILE_NAME).with_suffix(".o")
-    DOT_FILE_PATH = Path(__file__).resolve().parent / Path(SOURCE_CODE_FILE_NAME).with_suffix(".dot")
+    OBJECT_FOLDER_NAME = "i"
+    DOT_FOLDER_NAME = "dot"
+    OBJECT_FILE_PATH = Path(__file__).resolve().parent / OBJECT_FOLDER_NAME / Path(SOURCE_CODE_FILE_NAME).with_suffix(".i")
+    DOT_FILE_PATH = Path(__file__).resolve().parent / DOT_FOLDER_NAME / Path(SOURCE_CODE_FILE_NAME).with_suffix(".dot")
     output_file_paths = [OBJECT_FILE_PATH, DOT_FILE_PATH]
-    #output_file_paths.extend([Path(__file__).resolve().parent / file_name for file_name in ADDITIONAL_OUTPUT_FILE_NAMES])
     output_streams = open_files(output_file_paths)
     object_output_streams = [STDOUT] if OUTPUT_TO_CONSOLE else []
     dot_output_streams = [STDOUT] if OUTPUT_TO_CONSOLE else []
@@ -320,7 +320,7 @@ def compile(file_name: str = None) -> None:
             raise SyntaxError(f"Expected \'<-\' following \'let\' + identifier \'{variable_name}\'")
         file_stream.next_token() # consume Token.ASSIGNMENT
         intrepr.ssa_associations[variable_name] = expression(basic_block) # map variable_name to SSA value
-        basic_block.variables_to_most_recent_ssa_value[variable_name] = intrepr.ssa_associations[variable_name]
+        basic_block.variable_to_most_recent_ssa_value[variable_name] = intrepr.ssa_associations[variable_name] # record in basic block
         return intrepr.ssa_associations[variable_name]
     
     def function_call() -> None:
@@ -344,8 +344,10 @@ def compile(file_name: str = None) -> None:
         join_basic_block.is_join_block = True
         intrepr.basic_blocks[then_basic_block.number] = then_basic_block
         intrepr.basic_blocks[join_basic_block.number] = join_basic_block
-        then_basic_block.parent_blocks.add(if_basic_block)
-        join_basic_block.parent_blocks.add(then_basic_block)
+        then_basic_block.variable_to_most_recent_ssa_value = if_basic_block.variable_to_most_recent_ssa_value.copy()
+        join_basic_block.variable_to_most_recent_ssa_value = if_basic_block.variable_to_most_recent_ssa_value.copy()
+        then_basic_block.cursed_by = [if_basic_block] + if_basic_block.cursed_by
+        join_basic_block.cursed_by = [if_basic_block] + if_basic_block.cursed_by
         dot.declare_block(if_basic_block)
         dot.declare_block(then_basic_block)
         dot.declare_block(join_basic_block)
@@ -371,51 +373,66 @@ def compile(file_name: str = None) -> None:
             raise SyntaxError(f"Expected \'then\' token")
         file_stream.next_token() # consume Keyword.THEN
         statement_sequence(then_basic_block)
+        intrepr.da_stack.append(then_basic_block)
+        for i in then_basic_block.get_instructions():
+            if i.operator is Operator.CMP:
+                intrepr.da_stack.pop()
+                break
 
         # processing else clause
         else_basic_block = None
         if file_stream.peek_token() == Keyword.ELSE:
             file_stream.next_token() # consume Keyword.ELSE
             else_basic_block = intrepr.create_new_basic_block()
-            else_basic_block.parent_blocks.add(if_basic_block)
+            else_basic_block.variable_to_most_recent_ssa_value = if_basic_block.variable_to_most_recent_ssa_value.copy()
+            statement_sequence(else_basic_block)
+            else_basic_block.cursed_by = [if_basic_block] + if_basic_block.cursed_by
             dot.declare_block(else_basic_block)
             intrepr.basic_blocks[else_basic_block.number] = else_basic_block
-            statement_sequence(else_basic_block)
+            if not else_basic_block.get_instructions():
+                else_basic_block.instructions.append(Instruction(intrepr.create_new_ssa_value(), Operator.EMPTY_INSTRUCTION))
             branch_from_if_to_else_instruction = Instruction(branch_instruction_ssa_value, branch_operator, compare_ssa_value, else_basic_block.get_starting_ssa_value())
             if_basic_block.instructions.append(branch_from_if_to_else_instruction)
-            dot.declare_branch_arrow(if_basic_block, else_basic_block)
-            dot.declare_fall_through_arrow(else_basic_block, join_basic_block)
+            intrepr.da_stack.append(else_basic_block)
+            for i in else_basic_block.get_instructions():
+                if i.operator is Operator.CMP:
+                    intrepr.da_stack.pop()
+                    break
+        else:
+            intrepr.da_stack.append(if_basic_block)
         if file_stream.peek_token() != Keyword.FI:
             raise SyntaxError(f"Expected \'fi\' token")
         file_stream.next_token()
 
-        # post-processing join block, branching then block to join block
+
+        if else_basic_block:
+            dot.declare_branch_arrow(if_basic_block, else_basic_block)
+        else:
+            dot.declare_branch_arrow(if_basic_block, join_basic_block)
+        head_else_basic_block = else_basic_block
+        else_basic_block = intrepr.da_stack.pop()
+        then_basic_block = intrepr.da_stack.pop()
         intrepr.save_join_basic_block(join_basic_block)
-        join_basic_block.parent_blocks.add(then_basic_block)
-        join_basic_block.parent_blocks.add(else_basic_block) if else_basic_block else None
-        
-        for variable_name in then_basic_block.variables_to_most_recent_ssa_value.keys():
-            then_ssa_value = then_basic_block.variables_to_most_recent_ssa_value[variable_name]
-            branched_ssa_value = None
-            if else_basic_block and variable_name in else_basic_block.variables_to_most_recent_ssa_value:
-                branched_ssa_value = else_basic_block.variables_to_most_recent_ssa_value[variable_name]
-            else:
-                branched_ssa_value = if_basic_block.variables_to_most_recent_ssa_value[variable_name]
+        for variable_name in then_basic_block.variable_to_most_recent_ssa_value.keys():
+            then_ssa_value = then_basic_block.variable_to_most_recent_ssa_value[variable_name]
+            branched_ssa_value = else_basic_block.variable_to_most_recent_ssa_value[variable_name] if else_basic_block else if_basic_block.variable_to_most_recent_ssa_value[variable_name]
+            if then_ssa_value == branched_ssa_value:
+                continue
             phi_instruction = Instruction(intrepr.create_new_ssa_value(), Operator.PHI, then_ssa_value, branched_ssa_value)
             join_basic_block.join_instructions.append(phi_instruction)
             intrepr.ssa_associations[variable_name] = phi_instruction.ssa_value
-            join_basic_block.variables_to_most_recent_ssa_value[variable_name] = phi_instruction.ssa_value
+            join_basic_block.variable_to_most_recent_ssa_value[variable_name] = phi_instruction.ssa_value
 
-        if else_basic_block:
+        if head_else_basic_block:
             branch_instruction_from_then_to_join = Instruction(intrepr.create_new_ssa_value(), Operator.BRANCH, join_basic_block.get_starting_ssa_value())
             then_basic_block.instructions.append(branch_instruction_from_then_to_join)
             dot.declare_branch_arrow(then_basic_block, join_basic_block)
+            dot.declare_fall_through_arrow(else_basic_block, join_basic_block)
         else:
-            branch_instruction_from_if_to_join = Instruction(intrepr.create_new_ssa_value(), Operator.BRANCH, join_basic_block.get_starting_ssa_value())
+            branch_instruction_from_if_to_join = Instruction(intrepr.create_new_ssa_value(), Operator.map_comparison_operator(compare_operator_token), compare_ssa_value, join_basic_block.get_starting_ssa_value())
             if_basic_block.instructions.append(branch_instruction_from_if_to_join)
-            dot.declare_branch_arrow(if_basic_block, join_basic_block)
             dot.declare_fall_through_arrow(then_basic_block, join_basic_block)
-
+        intrepr.da_stack.append(join_basic_block)
         return
         
     def while_do_od() -> None:
