@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="132pt" height="195pt" viewBox="0.00 0.00 132.00 195.00">
+<g id="graph0" class="graph" transform="scale(1 1) rotate(0) translate(4 190.8)">
+<title>G</title>
+<polygon fill="white" stroke="none" points="-4,4 -4,-190.8 127.78,-190.8 127.78,4 -4,4"/>
+<!-- bb0 -->
+<g id="node1" class="node">
+<title>bb0</title>
+<polygon fill="none" stroke="black" points="0,-136.7 0,-186.3 123.78,-186.3 123.78,-136.7 0,-136.7"/>
+<text xml:space="preserve" text-anchor="middle" x="20.84" y="-157.3" font-family="Times,serif" font-size="14.00">BB0</text>
+<polyline fill="none" stroke="black" points="41.68,-136.7 41.68,-186.3"/>
+<text xml:space="preserve" text-anchor="middle" x="82.73" y="-169.7" font-family="Times,serif" font-size="14.00">-1: const #1</text>
+<polyline fill="none" stroke="black" points="41.68,-161.5 123.78,-161.5"/>
+<text xml:space="preserve" text-anchor="middle" x="82.73" y="-144.9" font-family="Times,serif" font-size="14.00">-2: const #2</text>
+</g>
+<!-- bb1 -->
+<g id="node2" class="node">
+<title>bb1</title>
+<polygon fill="none" stroke="black" points="0.59,-0.5 0.59,-99.7 123.19,-99.7 123.19,-0.5 0.59,-0.5"/>
+<text xml:space="preserve" text-anchor="middle" x="21.43" y="-45.9" font-family="Times,serif" font-size="14.00">BB1</text>
+<polyline fill="none" stroke="black" points="42.26,-0.5 42.26,-99.7"/>
+<text xml:space="preserve" text-anchor="middle" x="82.73" y="-83.1" font-family="Times,serif" font-size="14.00">1: add -1 -1</text>
+<polyline fill="none" stroke="black" points="42.26,-74.9 123.19,-74.9"/>
+<text xml:space="preserve" text-anchor="middle" x="82.73" y="-58.3" font-family="Times,serif" font-size="14.00">2: add 1 1</text>
+<polyline fill="none" stroke="black" points="42.26,-50.1 123.19,-50.1"/>
+<text xml:space="preserve" text-anchor="middle" x="82.73" y="-33.5" font-family="Times,serif" font-size="14.00">3: add 1 -1</text>
+<polyline fill="none" stroke="black" points="42.26,-25.3 123.19,-25.3"/>
+<text xml:space="preserve" text-anchor="middle" x="82.73" y="-8.7" font-family="Times,serif" font-size="14.00">4: add 3 -1</text>
+</g>
+<!-- bb0&#45;&gt;bb1 -->
+<g id="edge1" class="edge">
+<title>bb0:s-&gt;bb1:n</title>
+<path fill="none" stroke="black" d="M61.89,-136.2C61.89,-124.82 61.89,-119.52 61.89,-111.65"/>
+<polygon fill="black" stroke="black" points="65.39,-111.71 61.89,-101.71 58.39,-111.71 65.39,-111.71"/>
+</g>
+</g>
+</svg>

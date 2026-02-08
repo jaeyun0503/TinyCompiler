@@ -7,6 +7,8 @@ development
         consequent code optimization
             subexpression elimination
             dead code elimination
+    
+    function calls
 
 
 bugs

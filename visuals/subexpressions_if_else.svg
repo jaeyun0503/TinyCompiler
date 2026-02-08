@@ -1,0 +1,194 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="420pt" height="745pt" viewBox="0.00 0.00 420.00 745.00">
+<g id="graph0" class="graph" transform="scale(1 1) rotate(0) translate(4 740.6)">
+<title>G</title>
+<polygon fill="white" stroke="none" points="-4,4 -4,-740.6 415.92,-740.6 415.92,4 -4,4"/>
+<!-- bb1 -->
+<g id="node1" class="node">
+<title>bb1</title>
+<polygon fill="none" stroke="black" points="93.7,-524.5 93.7,-598.9 216.3,-598.9 216.3,-524.5 93.7,-524.5"/>
+<text xml:space="preserve" text-anchor="middle" x="114.54" y="-557.5" font-family="Times,serif" font-size="14.00">BB1</text>
+<polyline fill="none" stroke="black" points="135.37,-524.5 135.37,-598.9"/>
+<text xml:space="preserve" text-anchor="middle" x="175.84" y="-582.3" font-family="Times,serif" font-size="14.00">1: add -1 -1</text>
+<polyline fill="none" stroke="black" points="135.37,-574.1 216.3,-574.1"/>
+<text xml:space="preserve" text-anchor="middle" x="175.84" y="-557.5" font-family="Times,serif" font-size="14.00">2: cmp -1 1</text>
+<polyline fill="none" stroke="black" points="135.37,-549.3 216.3,-549.3"/>
+<text xml:space="preserve" text-anchor="middle" x="175.84" y="-532.7" font-family="Times,serif" font-size="14.00">3: bge 2 13</text>
+</g>
+<!-- bb4 -->
+<g id="node2" class="node">
+<title>bb4</title>
+<polygon fill="none" stroke="black" points="96.08,-232.1 96.08,-268.1 225.92,-268.1 225.92,-232.1 96.08,-232.1"/>
+<text xml:space="preserve" text-anchor="middle" x="116.91" y="-245.9" font-family="Times,serif" font-size="14.00">BB4</text>
+<polyline fill="none" stroke="black" points="137.75,-232.1 137.75,-268.1"/>
+<text xml:space="preserve" text-anchor="middle" x="181.84" y="-246" font-family="Times,serif" font-size="14.00">10: &lt;empty&gt;</text>
+</g>
+<!-- bb1&#45;&gt;bb4 -->
+<g id="edge10" class="edge">
+<title>bb1:s-&gt;bb4:b</title>
+<path fill="none" stroke="#6b80d4" stroke-dasharray="1,5" d="M155,-524C155,-508.31 113.68,-485.87 108.11,-471.2 84.46,-408.96 102.62,-387.75 108.11,-321.4 109.72,-301.95 114.61,-294.89 116.32,-279.85"/>
+<polygon fill="#6b80d4" stroke="#6b80d4" points="119.8,-280.28 116.83,-270.11 112.81,-279.91 119.8,-280.28"/>
+<text xml:space="preserve" text-anchor="middle" x="120.56" y="-392.1" font-family="Times,serif" font-size="14.00" fill="#6b80d4">dom</text>
+</g>
+<!-- bb3 -->
+<g id="node3" class="node">
+<title>bb3</title>
+<polygon fill="none" stroke="black" points="155.2,-0.5 155.2,-74.9 284.8,-74.9 284.8,-0.5 155.2,-0.5"/>
+<text xml:space="preserve" text-anchor="middle" x="176.04" y="-41.9" font-family="Times,serif" font-size="14.00">join</text>
+<text xml:space="preserve" text-anchor="middle" x="176.04" y="-25.1" font-family="Times,serif" font-size="14.00">BB3</text>
+<polyline fill="none" stroke="black" points="196.87,-0.5 196.87,-74.9"/>
+<text xml:space="preserve" text-anchor="middle" x="240.84" y="-58.3" font-family="Times,serif" font-size="14.00">14: phi 7 1</text>
+<polyline fill="none" stroke="black" points="196.87,-50.1 284.8,-50.1"/>
+<text xml:space="preserve" text-anchor="middle" x="240.84" y="-33.5" font-family="Times,serif" font-size="14.00">16: add -3 -3</text>
+<polyline fill="none" stroke="black" points="196.87,-25.3 284.8,-25.3"/>
+<text xml:space="preserve" text-anchor="middle" x="240.84" y="-8.7" font-family="Times,serif" font-size="14.00">17: add 1 -4</text>
+</g>
+<!-- bb1&#45;&gt;bb3 -->
+<g id="edge11" class="edge">
+<title>bb1:s-&gt;bb3:b</title>
+<path fill="none" stroke="#6b80d4" stroke-dasharray="1,5" d="M155,-524C155,-497.43 120.34,-520.37 98,-506 43.29,-470.82 0,-462.35 0,-397.3 0,-397.3 0,-397.3 0,-152.5 0,-70.9 62.72,-40.45 142.79,-37.88"/>
+<polygon fill="#6b80d4" stroke="#6b80d4" points="142.74,-41.38 152.68,-37.72 142.63,-34.38 142.74,-41.38"/>
+<text xml:space="preserve" text-anchor="middle" x="12.44" y="-245.9" font-family="Times,serif" font-size="14.00" fill="#6b80d4">dom</text>
+</g>
+<!-- bb2 -->
+<g id="node5" class="node">
+<title>bb2</title>
+<polygon fill="none" stroke="black" points="142.08,-321.9 142.08,-470.7 263.92,-470.7 263.92,-321.9 142.08,-321.9"/>
+<text xml:space="preserve" text-anchor="middle" x="162.92" y="-392.1" font-family="Times,serif" font-size="14.00">BB2</text>
+<polyline fill="none" stroke="black" points="183.75,-321.9 183.75,-470.7"/>
+<text xml:space="preserve" text-anchor="middle" x="223.84" y="-454.1" font-family="Times,serif" font-size="14.00">4: add 1 -1</text>
+<polyline fill="none" stroke="black" points="183.75,-445.9 263.92,-445.9"/>
+<text xml:space="preserve" text-anchor="middle" x="223.84" y="-429.3" font-family="Times,serif" font-size="14.00">5: add 4 -1</text>
+<polyline fill="none" stroke="black" points="183.75,-421.1 263.92,-421.1"/>
+<text xml:space="preserve" text-anchor="middle" x="223.84" y="-404.5" font-family="Times,serif" font-size="14.00">6: add 5 -2</text>
+<polyline fill="none" stroke="black" points="183.75,-396.3 263.92,-396.3"/>
+<text xml:space="preserve" text-anchor="middle" x="223.84" y="-379.7" font-family="Times,serif" font-size="14.00">7: add 6 -1</text>
+<polyline fill="none" stroke="black" points="183.75,-371.5 263.92,-371.5"/>
+<text xml:space="preserve" text-anchor="middle" x="223.84" y="-354.9" font-family="Times,serif" font-size="14.00">8: cmp 7 1</text>
+<polyline fill="none" stroke="black" points="183.75,-346.7 263.92,-346.7"/>
+<text xml:space="preserve" text-anchor="middle" x="223.84" y="-330.1" font-family="Times,serif" font-size="14.00">12: blt 8 11</text>
+</g>
+<!-- bb1&#45;&gt;bb2 -->
+<g id="edge2" class="edge">
+<title>bb1:s-&gt;bb2:n</title>
+<path fill="none" stroke="#4ebf63" d="M155,-524C155,-509.95 171.27,-516.14 181,-506 190.5,-496.1 198.12,-491.77 201.34,-482.5"/>
+<polygon fill="#4ebf63" stroke="#4ebf63" points="204.79,-483.1 202.78,-472.7 197.87,-482.08 204.79,-483.1"/>
+<text xml:space="preserve" text-anchor="middle" x="231.09" y="-493.4" font-family="Times,serif" font-size="14.00" fill="#4ebf63">fall-through</text>
+</g>
+<!-- bb1&#45;&gt;bb2 -->
+<g id="edge12" class="edge">
+<title>bb1:s-&gt;bb2:b</title>
+<path fill="none" stroke="#6b80d4" stroke-dasharray="1,5" d="M155,-524C155,-508.48 147.97,-504.16 152.11,-489.2 153.2,-485.27 155.4,-483.11 157.54,-481.16"/>
+<polygon fill="#6b80d4" stroke="#6b80d4" points="160.53,-482.99 162.2,-472.53 154.37,-479.67 160.53,-482.99"/>
+<text xml:space="preserve" text-anchor="middle" x="164.56" y="-493.4" font-family="Times,serif" font-size="14.00" fill="#6b80d4">dom</text>
+</g>
+<!-- bb5 -->
+<g id="node6" class="node">
+<title>bb5</title>
+<polygon fill="none" stroke="black" points="155.08,-128.7 155.08,-178.3 284.92,-178.3 284.92,-128.7 155.08,-128.7"/>
+<text xml:space="preserve" text-anchor="middle" x="175.91" y="-157.7" font-family="Times,serif" font-size="14.00">join</text>
+<text xml:space="preserve" text-anchor="middle" x="175.91" y="-140.9" font-family="Times,serif" font-size="14.00">BB5</text>
+<polyline fill="none" stroke="black" points="196.75,-128.7 196.75,-178.3"/>
+<text xml:space="preserve" text-anchor="middle" x="240.84" y="-161.7" font-family="Times,serif" font-size="14.00">11: &lt;empty&gt;</text>
+<polyline fill="none" stroke="black" points="196.75,-153.5 284.92,-153.5"/>
+<text xml:space="preserve" text-anchor="middle" x="240.84" y="-136.9" font-family="Times,serif" font-size="14.00">15: bra 14</text>
+</g>
+<!-- bb1&#45;&gt;bb5 -->
+<g id="edge14" class="edge">
+<title>bb1:s-&gt;bb5:b</title>
+<path fill="none" stroke="#6b80d4" stroke-dasharray="1,5" d="M155,-524C155,-506.9 134.28,-516.77 121,-506 105.36,-493.32 99.41,-489.92 92,-471.2 61.77,-394.8 78.47,-368.68 82.11,-286.6 84.92,-223.35 86.62,-161.23 142.92,-154.17"/>
+<polygon fill="#6b80d4" stroke="#6b80d4" points="142.79,-157.68 152.56,-153.59 142.37,-150.69 142.79,-157.68"/>
+<text xml:space="preserve" text-anchor="middle" x="94.56" y="-290.8" font-family="Times,serif" font-size="14.00" fill="#6b80d4">dom</text>
+</g>
+<!-- bb6 -->
+<g id="node7" class="node">
+<title>bb6</title>
+<polygon fill="none" stroke="black" points="282.08,-378.3 282.08,-414.3 411.92,-414.3 411.92,-378.3 282.08,-378.3"/>
+<text xml:space="preserve" text-anchor="middle" x="302.91" y="-392.1" font-family="Times,serif" font-size="14.00">BB6</text>
+<polyline fill="none" stroke="black" points="323.75,-378.3 323.75,-414.3"/>
+<text xml:space="preserve" text-anchor="middle" x="367.84" y="-392.2" font-family="Times,serif" font-size="14.00">13: &lt;empty&gt;</text>
+</g>
+<!-- bb1&#45;&gt;bb6 -->
+<g id="edge6" class="edge">
+<title>bb1:s-&gt;bb6:n</title>
+<path fill="none" stroke="#d26f4f" d="M155,-524C155,-486.45 294.51,-530.46 323,-506 351.67,-481.38 348.09,-461.14 347.16,-426.52"/>
+<polygon fill="#d26f4f" stroke="#d26f4f" points="350.67,-426.76 347.02,-416.81 343.67,-426.86 350.67,-426.76"/>
+<text xml:space="preserve" text-anchor="middle" x="356.69" y="-493.4" font-family="Times,serif" font-size="14.00" fill="#d26f4f">branch</text>
+</g>
+<!-- bb1&#45;&gt;bb6 -->
+<g id="edge15" class="edge">
+<title>bb1:s-&gt;bb6:b</title>
+<path fill="none" stroke="#6b80d4" stroke-dasharray="1,5" d="M155,-524C155,-498.35 249.14,-522.22 269,-506 299.34,-481.22 302.54,-462.06 302.88,-426.37"/>
+<polygon fill="#6b80d4" stroke="#6b80d4" points="306.37,-426.83 302.91,-416.81 299.37,-426.8 306.37,-426.83"/>
+<text xml:space="preserve" text-anchor="middle" x="297.77" y="-493.4" font-family="Times,serif" font-size="14.00" fill="#6b80d4">dom</text>
+</g>
+<!-- bb4&#45;&gt;bb5 -->
+<g id="edge5" class="edge">
+<title>bb4:s-&gt;bb5:n</title>
+<path fill="none" stroke="#4ebf63" d="M161,-231.6C161,-213.73 167.94,-208.85 181.13,-196.8 191.02,-187.77 206.22,-191.95 214.37,-188.61"/>
+<polygon fill="#4ebf63" stroke="#4ebf63" points="217.31,-190.53 219.25,-180.11 211.23,-187.05 217.31,-190.53"/>
+<text xml:space="preserve" text-anchor="middle" x="214.57" y="-201" font-family="Times,serif" font-size="14.00" fill="#4ebf63">fall-through</text>
+</g>
+<!-- bb0 -->
+<g id="node4" class="node">
+<title>bb0</title>
+<polygon fill="none" stroke="black" points="82.61,-636.9 82.61,-736.1 227.39,-736.1 227.39,-636.9 82.61,-636.9"/>
+<text xml:space="preserve" text-anchor="middle" x="103.45" y="-682.3" font-family="Times,serif" font-size="14.00">BB0</text>
+<polyline fill="none" stroke="black" points="124.29,-636.9 124.29,-736.1"/>
+<text xml:space="preserve" text-anchor="middle" x="175.84" y="-719.5" font-family="Times,serif" font-size="14.00">-1: const #1</text>
+<polyline fill="none" stroke="black" points="124.29,-711.3 227.39,-711.3"/>
+<text xml:space="preserve" text-anchor="middle" x="175.84" y="-694.7" font-family="Times,serif" font-size="14.00">-2: const #100</text>
+<polyline fill="none" stroke="black" points="124.29,-686.5 227.39,-686.5"/>
+<text xml:space="preserve" text-anchor="middle" x="175.84" y="-669.9" font-family="Times,serif" font-size="14.00">-3: const #67</text>
+<polyline fill="none" stroke="black" points="124.29,-661.7 227.39,-661.7"/>
+<text xml:space="preserve" text-anchor="middle" x="175.84" y="-645.1" font-family="Times,serif" font-size="14.00">-4: const #1000</text>
+</g>
+<!-- bb0&#45;&gt;bb1 -->
+<g id="edge1" class="edge">
+<title>bb0:s-&gt;bb1:n</title>
+<path fill="none" stroke="black" d="M155,-636.4C155,-624.58 155,-619.13 155,-610.9"/>
+<polygon fill="black" stroke="black" points="158.5,-610.91 155,-600.91 151.5,-610.91 158.5,-610.91"/>
+</g>
+<!-- bb2&#45;&gt;bb4 -->
+<g id="edge3" class="edge">
+<title>bb2:s-&gt;bb4:n</title>
+<path fill="none" stroke="#4ebf63" d="M203,-321.4C203,-308.81 189.27,-313 181.13,-303.4 172.55,-293.29 165.62,-288.86 162.61,-279.94"/>
+<polygon fill="#4ebf63" stroke="#4ebf63" points="166.09,-279.51 161.21,-270.1 159.16,-280.49 166.09,-279.51"/>
+<text xml:space="preserve" text-anchor="middle" x="214.57" y="-290.8" font-family="Times,serif" font-size="14.00" fill="#4ebf63">fall-through</text>
+</g>
+<!-- bb2&#45;&gt;bb4 -->
+<g id="edge9" class="edge">
+<title>bb2:s-&gt;bb4:b</title>
+<path fill="none" stroke="#6b80d4" stroke-dasharray="1,5" d="M203,-321.4C203,-291.04 161.17,-321.91 137.11,-303.4 126.48,-295.22 120.43,-289.79 118.08,-280.05"/>
+<polygon fill="#6b80d4" stroke="#6b80d4" points="121.56,-279.7 117.07,-270.11 114.59,-280.41 121.56,-279.7"/>
+<text xml:space="preserve" text-anchor="middle" x="149.56" y="-290.8" font-family="Times,serif" font-size="14.00" fill="#6b80d4">dom</text>
+</g>
+<!-- bb2&#45;&gt;bb5 -->
+<g id="edge4" class="edge">
+<title>bb2:s-&gt;bb5:n</title>
+<path fill="none" stroke="#d26f4f" d="M203,-321.4C203,-299.86 235.92,-321.24 248,-303.4 274.56,-264.17 270.7,-238.38 248,-196.8 243.62,-188.79 233.98,-189.44 227.24,-187.64"/>
+<polygon fill="#d26f4f" stroke="#d26f4f" points="230,-185.49 220.96,-179.97 224.59,-189.92 230,-185.49"/>
+<text xml:space="preserve" text-anchor="middle" x="285.55" y="-245.9" font-family="Times,serif" font-size="14.00" fill="#d26f4f">branch</text>
+</g>
+<!-- bb2&#45;&gt;bb5 -->
+<g id="edge13" class="edge">
+<title>bb2:s-&gt;bb5:b</title>
+<path fill="none" stroke="#6b80d4" stroke-dasharray="1,5" d="M203,-321.4C203,-291.85 240.83,-317.12 267,-303.4 299.74,-286.23 324.92,-264.97 309,-231.6 298.41,-209.41 288.26,-207.25 266,-196.8 251.13,-189.82 201.86,-195.64 183.18,-187.54"/>
+<polygon fill="#6b80d4" stroke="#6b80d4" points="185.97,-185.42 176.88,-179.96 180.58,-189.89 185.97,-185.42"/>
+<text xml:space="preserve" text-anchor="middle" x="326.35" y="-245.9" font-family="Times,serif" font-size="14.00" fill="#6b80d4">dom</text>
+</g>
+<!-- bb5&#45;&gt;bb3 -->
+<g id="edge7" class="edge">
+<title>bb5:s-&gt;bb3:n</title>
+<path fill="none" stroke="#d26f4f" d="M220,-128.2C220,-108.95 220,-101.54 220,-86.55"/>
+<polygon fill="#d26f4f" stroke="#d26f4f" points="223.5,-86.91 220,-76.91 216.5,-86.91 223.5,-86.91"/>
+<text xml:space="preserve" text-anchor="middle" x="239.04" y="-97.6" font-family="Times,serif" font-size="14.00" fill="#d26f4f">branch</text>
+</g>
+<!-- bb6&#45;&gt;bb3 -->
+<g id="edge8" class="edge">
+<title>bb6:s-&gt;bb3:n</title>
+<path fill="none" stroke="#4ebf63" d="M347,-377.3C347,-312.52 358.08,-294.6 343,-231.6 331.16,-182.14 322.42,-170.37 294,-128.2 282.26,-110.78 279.15,-105.54 262,-93.4 249.96,-84.87 233.24,-89.96 225,-85.58"/>
+<polygon fill="#4ebf63" stroke="#4ebf63" points="228.22,-84.19 220.67,-76.76 221.93,-87.28 228.22,-84.19"/>
+<text xml:space="preserve" text-anchor="middle" x="371.63" y="-201" font-family="Times,serif" font-size="14.00" fill="#4ebf63">fall-through</text>
+</g>
+</g>
+</svg>

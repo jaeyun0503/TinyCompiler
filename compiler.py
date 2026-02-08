@@ -6,7 +6,7 @@ from tokenizer import Keyword, Token, SourceCode
 from output import OutStream, open_files, close_files
 
 # MODIFY TO TARGET SOURCE CODE FILE
-SOURCE_CODE_FILE_NAME = "if_else_branch_empty.txt"
+SOURCE_CODE_FILE_NAME = "if_else_nested_5.txt"
 
 # CONSOLE OUTPUT TOGGLE
 OUTPUT_TO_CONSOLE = False
@@ -77,14 +77,19 @@ class Instruction():
     
     def __repr__(self) -> str:
         return self.__str__()
+    
+    def __eq__(self, other) -> bool:
+        if not isinstance(other, Instruction):
+            return NotImplemented
+        return self.operator == other.operator and self.operand_1 == other.operand_1 and self.operand_2 == other.operand_2
 
 class BasicBlock():
     def __init__(self, block_number: int = None):
         self.number = block_number
         self.instructions = []
         self.join_instructions = []
-        self.cursed_by = []
-        self.variable_to_most_recent_ssa_value = dict()
+        self.dominated_by = []
+        self.variable_names_to_latest_ssa_values = dict()
         self.is_join_block = False
     
     def get_starting_ssa_value(self) -> int:
@@ -93,7 +98,10 @@ class BasicBlock():
         elif self.instructions:
             return self.instructions[0].ssa_value
         else:
-            raise ValueError(f"No ssa values in BasicBlock {self.number}")
+            return None
+            # raise ValueError(f"No ssa values in BasicBlock {self.number}")
+            # self.instructions.append(Instruction(program.generate_ssa_value(), Operator.EMPTY_INSTRUCTION))
+            # return self.instructions[0].ssa_value
     
     def __str__(self) -> str:
         return f"BasicBlock {self.number}"
@@ -109,6 +117,16 @@ class Dot():
     """
     Generates digraph representation of IR using DOT graph language
     """
+    SAPPHIRE = "#2f47a1"
+    PRAIRIE_SAND = "#9b3b24"
+    DARK_SIENNA = "#3f0096"
+    FOREST_GREEN = "#1c782f"
+    LIGHT_SAPPHIRE = "#6b80d4"
+    LIGHT_PRAIRIE_SAND = "#d26f4f"
+    LIGHT_SIENNA_VIOLET = "#8b5fe0"
+    LIGHT_FOREST_GREEN = "#4ebf63"
+
+    PENWIDTH = 5
 
     def __init__(self):
         self.basic_blocks = set()
@@ -141,10 +159,18 @@ class Dot():
                 content.append(Dot.translate_block(bb))
         content.extend(self.arrows)
         for bb in self.basic_blocks:
-            for curser_bb in bb.cursed_by:
+            for curser_bb in bb.dominated_by:
                 content.append(Dot.translate_dom_arrow(curser_bb, bb))
         newline = '\n'
         return f"digraph G {{\n{newline.join(content)}\n}}"
+        # return (f"digraph G {{\n"
+        #         f"  bgcolor=\"black\";\n"
+        #         f"  node [shape=record, style=filled, fillcolor=\"#202020\", fontcolor=\"white\", color=\"white\"];\n"
+        #         f"  edge [color=\"white\", fontcolor=\"white\"];\n"
+        #         f"{newline.join(content)}\n"
+        #         f"}}"
+        # )
+
 
     @classmethod
     def translate_block(cls, bb: BasicBlock) -> str:
@@ -164,64 +190,72 @@ class Dot():
     
     @classmethod
     def translate_fall_through_arrow(cls, from_bb: BasicBlock, to_bb: BasicBlock) -> str:
-        return f"bb{from_bb.number}:s -> bb{to_bb.number}:n [label=\"fall-through\"];"
+        return f"bb{from_bb.number}:s -> bb{to_bb.number}:n [label=\"fall-through\", color=\"{Dot.LIGHT_FOREST_GREEN}\", fontcolor=\"{Dot.LIGHT_FOREST_GREEN}\"]; penwidth={Dot.PENWIDTH};"
     
     @classmethod
     def translate_branch_arrow(cls, from_bb: BasicBlock, to_bb: BasicBlock) -> str:
-        return f"bb{from_bb.number}:s -> bb{to_bb.number}:n [label=\"branch\"];"
+        return f"bb{from_bb.number}:s -> bb{to_bb.number}:n [label=\"branch\", color=\"{Dot.LIGHT_PRAIRIE_SAND}\", fontcolor=\"{Dot.LIGHT_PRAIRIE_SAND}\"]; penwidth={Dot.PENWIDTH};"
     
     @classmethod
     def translate_dom_arrow(cls, from_bb: BasicBlock, to_bb: BasicBlock) -> str:
-        return f"bb{from_bb.number}:s -> bb{to_bb.number}:b [color=blue, style=dotted, label=\"dom\", fontcolor=blue];"
+        return f"bb{from_bb.number}:s -> bb{to_bb.number}:b [label=\"dom\", style=dotted, color=\"{Dot.LIGHT_SAPPHIRE}\", fontcolor=\"{Dot.LIGHT_SAPPHIRE}\"]; penwidth={Dot.PENWIDTH};"
 
 object_outstream = None
 class Program:
     def __init__(self):
-        const_basic_block = BasicBlock(0)
-        basic_block_1 = BasicBlock(1)
-        self.basic_blocks = {0: const_basic_block, 1: basic_block_1}
-        self._next_free_basic_block_number = 2
-        self._ssa_value = 1
-        self._ssa_const_value = -1
-        self.ssa_associations = dict()
+        CONST_BASIC_BLOCK_NUMBER = 0
+        FIRST_BASIC_BLOCK_NUMBER = 1
+        self.basic_blocks = {CONST_BASIC_BLOCK_NUMBER: BasicBlock(CONST_BASIC_BLOCK_NUMBER),
+                             FIRST_BASIC_BLOCK_NUMBER: BasicBlock(FIRST_BASIC_BLOCK_NUMBER)}
+        self._basic_block_counter = 2
+        self._ssa_value_counter = 1
+        self._ssa_constant_value_counter = -1
+        self.constants_to_ssa_values = dict()
 
-        self._predefined_functions = {"InputNum", "OutputNum", "OutputNewLine"}
+        self._predefined_functions = {"InputNum" : Operator.READ, "OutputNum" : Operator.WRITE, "OutputNewLine" : Operator.WRITE_NEW_LINE}
         self.functions = self._predefined_functions.copy()
 
         self.join_basic_block = None
-        self.da_stack = []
+        self.if_else_stack = []
 
-    def create_new_ssa_value(self) -> int:
-        self._ssa_value += 1
-        return self._ssa_value - 1
+    def generate_ssa_value(self) -> int:
+        self._ssa_value_counter += 1
+        return self._ssa_value_counter - 1
     
-    def create_new_ssa_const_value(self) -> int:
-        self._ssa_const_value -= 1
-        return self._ssa_const_value + 1
+    def generate_ssa_const_value(self) -> int:
+        self._ssa_constant_value_counter -= 1
+        return self._ssa_constant_value_counter + 1
     
     def create_new_basic_block(self) -> BasicBlock:
-        new_basic_block = BasicBlock(self._next_free_basic_block_number)
-        self.basic_blocks[self._next_free_basic_block_number] = new_basic_block
-        self._next_free_basic_block_number += 1
-        return new_basic_block
+        new_bb = BasicBlock(self._basic_block_counter)
+        self.basic_blocks[self._basic_block_counter] = new_bb
+        self._basic_block_counter += 1
+        return new_bb
     
-    def save_join_basic_block(self, basic_block: BasicBlock) -> None:
-        self.join_basic_block = basic_block
+    def save_join_basic_block(self, bb: BasicBlock) -> None:
+        self.join_basic_block = bb
     
-    def get_potential_join_basic_block(self, basic_block: BasicBlock) -> BasicBlock:
+    def determine_join_basic_block(self, bb: BasicBlock) -> BasicBlock:
         jbb = self.join_basic_block
         self.join_basic_block = None
-        return jbb if jbb else basic_block
+        return jbb if jbb else bb
     
-    def find_ssa_value_of(self, operand: int | str) -> int:
-        if operand in self.ssa_associations:
-            return self.ssa_associations[operand]
+    def find_ssa_value_of_const(self, operand) -> int:
+        if operand in self.constants_to_ssa_values:
+            return self.constants_to_ssa_values[operand]
         else: # should technically only be constants
-            ssa_value = self.create_new_ssa_const_value()
-            self.ssa_associations[operand] = ssa_value
+            ssa_value = self.generate_ssa_const_value()
+            self.constants_to_ssa_values[operand] = ssa_value
             instruction = Instruction(ssa_value, Operator.CONST, operand)
             self.basic_blocks[0].instructions.append(instruction)
             return ssa_value
+    
+    def find_subexpression_ssa_value(self, basic_block: BasicBlock, instruction: Instruction) -> int:
+        for basic_block in [basic_block] + basic_block.dominated_by[::-1]:
+            for i in basic_block.get_instructions()[::-1]:
+                if i == instruction:
+                    return i.ssa_value
+        return None
     
     def emit_program(self) -> None:
         for basic_block in self.basic_blocks.keys():
@@ -264,17 +298,21 @@ def compile(file_name: str = None) -> None:
         while file_stream.peek_token() in ["+", "-"]:
             token = file_stream.peek_token()
             file_stream.next_token()
-            new_ssa_value = program.create_new_ssa_value()
             match token:
                 case Token.PLUS:
-                    add_instruction = Instruction(new_ssa_value, Operator.ADD, ssa_value, term(basic_block))
-                    basic_block.instructions.append(add_instruction)
-                    #emit(add_instruction)
+                    add_instruction = Instruction(None, Operator.ADD, ssa_value, term(basic_block))
+                    ssa_value = program.find_subexpression_ssa_value(basic_block, add_instruction)
+                    if ssa_value is None: # create new add instruction between two operands
+                        ssa_value = program.generate_ssa_value()
+                        add_instruction.ssa_value = ssa_value
+                        basic_block.instructions.append(add_instruction)
                 case Token.MINUS:
-                    sub_instruction = Instruction(new_ssa_value, Operator.SUB, ssa_value, term(basic_block))
-                    basic_block.instructions.append(sub_instruction)
-                    #emit(sub_instruction)
-            ssa_value = new_ssa_value
+                    sub_instruction = Instruction(None, Operator.SUB, ssa_value, term(basic_block))
+                    ssa_value = program.find_subexpression_ssa_value(basic_block, sub_instruction)
+                    if ssa_value is None: # create new sub instruction between two operands
+                        ssa_value = program.generate_ssa_value()
+                        sub_instruction.ssa_value = ssa_value
+                        basic_block.instructions.append(sub_instruction)
         return ssa_value
 
     def term(basic_block: BasicBlock) -> int:
@@ -282,14 +320,21 @@ def compile(file_name: str = None) -> None:
         while file_stream.peek_token() in ["*", "/"]:
             token = file_stream.peek_token()
             file_stream.next_token()
-            new_ssa_value = program.create_new_ssa_value()
             match token:
                 case Token.MULTIPLY:
-                    mul_instruction = Instruction(new_ssa_value, Operator.MUL, ssa_value, factor(basic_block))
-                    basic_block.instructions.append(mul_instruction)
+                    mul_instruction = Instruction(None, Operator.MUL, ssa_value, factor(basic_block))
+                    new_ssa_value = program.find_subexpression_ssa_value(basic_block, mul_instruction)
+                    if new_ssa_value is None:
+                        new_ssa_value = program.generate_ssa_value()
+                        mul_instruction.ssa_value = new_ssa_value
+                        basic_block.instructions.append(mul_instruction)
                 case Token.DIVIDE:
-                    div_instruction = Instruction(new_ssa_value, Operator.DIV, ssa_value, factor(basic_block))
-                    basic_block.instructions.append(div_instruction)
+                    div_instruction = Instruction(None, Operator.DIV, ssa_value, factor(basic_block))
+                    new_ssa_value = program.find_subexpression_ssa_value(basic_block, div_instruction)
+                    if new_ssa_value is None:
+                        new_ssa_value = program.generate_ssa_value()
+                        div_instruction.ssa_value = new_ssa_value
+                        basic_block.instructions.append(div_instruction)
             ssa_value = new_ssa_value
         return ssa_value
     
@@ -303,15 +348,18 @@ def compile(file_name: str = None) -> None:
             else:
                 raise SyntaxError(f"Factor: no )")
         elif file_stream.peek_token().isalnum():
-            ssa_value = number()
+            ssa_value = number(basic_block)
         else:
             raise SyntaxError(f"Factor no digits")
         return ssa_value
 
-    def number() -> int:
+    def number(basic_block: BasicBlock) -> int:
         operand = file_stream.peek_token()
         file_stream.next_token()
-        return program.find_ssa_value_of(operand)
+        if operand.isdigit():
+            return program.find_ssa_value_of_const(operand)
+        else:
+            return basic_block.variable_names_to_latest_ssa_values[operand]
     
     ## STATEMENT PARSING
     def assignment(basic_block: BasicBlock) -> int:
@@ -321,11 +369,11 @@ def compile(file_name: str = None) -> None:
         if file_stream.peek_token() != Token.ASSIGNMENT:
             raise SyntaxError(f"Expected \'<-\' following \'let\' + identifier \'{variable_name}\'")
         file_stream.next_token() # consume Token.ASSIGNMENT
-        program.ssa_associations[variable_name] = expression(basic_block) # map variable_name to SSA value
-        basic_block.variable_to_most_recent_ssa_value[variable_name] = program.ssa_associations[variable_name] # record in basic block
-        return program.ssa_associations[variable_name]
+        program.constants_to_ssa_values[variable_name] = expression(basic_block) # map variable_name to SSA value
+        basic_block.variable_names_to_latest_ssa_values[variable_name] = program.constants_to_ssa_values[variable_name] # record in basic block
+        return program.constants_to_ssa_values[variable_name]
     
-    def function_call() -> None:
+    def function_call(basic_block: BasicBlock) -> None:
         file_stream.next_token() # consume Keyword.CALL
         function_name = file_stream.peek_token()
         file_stream.next_token() # consume function_name
@@ -339,6 +387,10 @@ def compile(file_name: str = None) -> None:
             if file_stream.peek_token() != Token.CLOSE_PARENTHESES:
                 raise SyntaxError(f"Expected \')\' to close called function arguments")
             file_stream.next_token()
+        new_ssa_value = program.generate_ssa_value()
+        operation_name = program.functions[function_name] # // FLAG assuming built-in functions
+        function_call_instruction = Instruction(new_ssa_value, operation_name, *function_arguments)
+        basic_block.instructions.append(function_call_instruction)
 
     def if_then_else_fi(if_basic_block: BasicBlock) -> None:
         then_basic_block = program.create_new_basic_block()
@@ -346,10 +398,10 @@ def compile(file_name: str = None) -> None:
         join_basic_block.is_join_block = True
         program.basic_blocks[then_basic_block.number] = then_basic_block
         program.basic_blocks[join_basic_block.number] = join_basic_block
-        then_basic_block.variable_to_most_recent_ssa_value = if_basic_block.variable_to_most_recent_ssa_value.copy()
-        join_basic_block.variable_to_most_recent_ssa_value = if_basic_block.variable_to_most_recent_ssa_value.copy()
-        then_basic_block.cursed_by = [if_basic_block] + if_basic_block.cursed_by
-        join_basic_block.cursed_by = [if_basic_block] + if_basic_block.cursed_by
+        then_basic_block.variable_names_to_latest_ssa_values = if_basic_block.variable_names_to_latest_ssa_values.copy()
+        join_basic_block.variable_names_to_latest_ssa_values = if_basic_block.variable_names_to_latest_ssa_values.copy()
+        then_basic_block.dominated_by = [if_basic_block] + if_basic_block.dominated_by
+        join_basic_block.dominated_by = [if_basic_block] + if_basic_block.dominated_by
         dot.declare_block(if_basic_block)
         dot.declare_block(then_basic_block)
         dot.declare_block(join_basic_block)
@@ -363,22 +415,22 @@ def compile(file_name: str = None) -> None:
         compare_operator_token = file_stream.peek_token()
         file_stream.next_token()
         right_ssa_value = expression(if_basic_block)
-        compare_ssa_value = program.create_new_ssa_value()
+        compare_ssa_value = program.generate_ssa_value()
         compare_instruction = Instruction(compare_ssa_value, Operator.CMP, left_ssa_value, right_ssa_value)
         program.basic_blocks[if_basic_block.number] = if_basic_block
         if_basic_block.instructions.append(compare_instruction)
         branch_operator = Operator.map_comparison_operator(compare_operator_token)
-        branch_instruction_ssa_value = program.create_new_ssa_value()
+        branch_instruction_ssa_value = program.generate_ssa_value()
 
         # processing then clause
         if file_stream.peek_token() != Keyword.THEN:
             raise SyntaxError(f"Expected \'then\' token")
         file_stream.next_token() # consume Keyword.THEN
         statement_sequence(then_basic_block)
-        program.da_stack.append(then_basic_block)
+        program.if_else_stack.append(then_basic_block)
         for i in then_basic_block.get_instructions():
             if i.operator is Operator.CMP:
-                program.da_stack.pop()
+                program.if_else_stack.pop()
                 break
 
         # processing else clause
@@ -386,55 +438,59 @@ def compile(file_name: str = None) -> None:
         if file_stream.peek_token() == Keyword.ELSE:
             file_stream.next_token() # consume Keyword.ELSE
             else_basic_block = program.create_new_basic_block()
-            else_basic_block.variable_to_most_recent_ssa_value = if_basic_block.variable_to_most_recent_ssa_value.copy()
-            statement_sequence(else_basic_block)
-            else_basic_block.cursed_by = [if_basic_block] + if_basic_block.cursed_by
-            dot.declare_block(else_basic_block)
             program.basic_blocks[else_basic_block.number] = else_basic_block
+            else_basic_block.variable_names_to_latest_ssa_values = if_basic_block.variable_names_to_latest_ssa_values.copy()
+            else_basic_block.dominated_by = [if_basic_block] + if_basic_block.dominated_by
+            statement_sequence(else_basic_block)
+            dot.declare_block(else_basic_block)
             if not else_basic_block.get_instructions():
-                else_basic_block.instructions.append(Instruction(program.create_new_ssa_value(), Operator.EMPTY_INSTRUCTION))
+                else_basic_block.instructions.append(Instruction(program.generate_ssa_value(), Operator.EMPTY_INSTRUCTION))
             branch_from_if_to_else_instruction = Instruction(branch_instruction_ssa_value, branch_operator, compare_ssa_value, else_basic_block.get_starting_ssa_value())
             if_basic_block.instructions.append(branch_from_if_to_else_instruction)
-            program.da_stack.append(else_basic_block)
+            program.if_else_stack.append(else_basic_block)
             for i in else_basic_block.get_instructions():
                 if i.operator is Operator.CMP:
-                    program.da_stack.pop()
+                    program.if_else_stack.pop()
                     break
         else:
-            program.da_stack.append(if_basic_block)
+            program.if_else_stack.append(if_basic_block)
+
         if file_stream.peek_token() != Keyword.FI:
             raise SyntaxError(f"Expected \'fi\' token")
         file_stream.next_token()
-
 
         if else_basic_block:
             dot.declare_branch_arrow(if_basic_block, else_basic_block)
         else:
             dot.declare_branch_arrow(if_basic_block, join_basic_block)
         head_else_basic_block = else_basic_block
-        else_basic_block = program.da_stack.pop()
-        then_basic_block = program.da_stack.pop()
+        else_basic_block = program.if_else_stack.pop()
+        then_basic_block = program.if_else_stack.pop()
         program.save_join_basic_block(join_basic_block)
-        for variable_name in then_basic_block.variable_to_most_recent_ssa_value.keys():
-            then_ssa_value = then_basic_block.variable_to_most_recent_ssa_value[variable_name]
-            branched_ssa_value = else_basic_block.variable_to_most_recent_ssa_value[variable_name] if else_basic_block else if_basic_block.variable_to_most_recent_ssa_value[variable_name]
+        for variable_name in then_basic_block.variable_names_to_latest_ssa_values.keys():
+            then_ssa_value = then_basic_block.variable_names_to_latest_ssa_values[variable_name]
+            branched_ssa_value = else_basic_block.variable_names_to_latest_ssa_values[variable_name] if else_basic_block else if_basic_block.variable_names_to_latest_ssa_values[variable_name]
             if then_ssa_value == branched_ssa_value:
                 continue
-            phi_instruction = Instruction(program.create_new_ssa_value(), Operator.PHI, then_ssa_value, branched_ssa_value)
+            phi_instruction = Instruction(program.generate_ssa_value(), Operator.PHI, then_ssa_value, branched_ssa_value)
             join_basic_block.join_instructions.append(phi_instruction)
-            program.ssa_associations[variable_name] = phi_instruction.ssa_value
-            join_basic_block.variable_to_most_recent_ssa_value[variable_name] = phi_instruction.ssa_value
+            program.constants_to_ssa_values[variable_name] = phi_instruction.ssa_value
+            join_basic_block.variable_names_to_latest_ssa_values[variable_name] = phi_instruction.ssa_value
 
+        if not then_basic_block.get_instructions():
+            then_basic_block.instructions.append(Instruction(program.generate_ssa_value(), Operator.EMPTY_INSTRUCTION))
+        if not join_basic_block.get_instructions():
+            join_basic_block.instructions.append(Instruction(program.generate_ssa_value(), Operator.EMPTY_INSTRUCTION))
         if head_else_basic_block:
-            branch_instruction_from_then_to_join = Instruction(program.create_new_ssa_value(), Operator.BRANCH, join_basic_block.get_starting_ssa_value())
+            branch_instruction_from_then_to_join = Instruction(program.generate_ssa_value(), Operator.BRANCH, join_basic_block.get_starting_ssa_value())
             then_basic_block.instructions.append(branch_instruction_from_then_to_join)
             dot.declare_branch_arrow(then_basic_block, join_basic_block)
             dot.declare_fall_through_arrow(else_basic_block, join_basic_block)
         else:
-            branch_instruction_from_if_to_join = Instruction(program.create_new_ssa_value(), Operator.map_comparison_operator(compare_operator_token), compare_ssa_value, join_basic_block.get_starting_ssa_value())
+            branch_instruction_from_if_to_join = Instruction(program.generate_ssa_value(), Operator.map_comparison_operator(compare_operator_token), compare_ssa_value, join_basic_block.get_starting_ssa_value())
             if_basic_block.instructions.append(branch_instruction_from_if_to_join)
             dot.declare_fall_through_arrow(then_basic_block, join_basic_block)
-        program.da_stack.append(join_basic_block)
+        program.if_else_stack.append(join_basic_block)
         return
         
     def while_do_od() -> None:
@@ -463,7 +519,7 @@ def compile(file_name: str = None) -> None:
 
     def statement_sequence(basic_block: BasicBlock) -> None:
         statement(basic_block)
-        basic_block = program.get_potential_join_basic_block(basic_block)
+        basic_block = program.determine_join_basic_block(basic_block)
         while file_stream.peek_token() == Token.SEPARATOR:
             file_stream.next_token()
             if file_stream.peek_token() == Token.CLOSE_BRACE:
@@ -473,12 +529,12 @@ def compile(file_name: str = None) -> None:
 
     def statement(basic_block: BasicBlock) -> None:
         while True: # loop for parsing statements
-            basic_block = program.get_potential_join_basic_block(basic_block)
+            basic_block = program.determine_join_basic_block(basic_block)
             match file_stream.peek_token():
                 case Keyword.LET:
-                        assignment(basic_block)
+                    assignment(basic_block)
                 case Keyword.IF:
-                        if_then_else_fi(basic_block)
+                    if_then_else_fi(basic_block)
                 case Keyword.ELSE:
                     break
                 case Keyword.FI:
@@ -490,10 +546,16 @@ def compile(file_name: str = None) -> None:
                 case Keyword.RETURN:
                     returning()
                 case Keyword.CALL:
-                    function_call()
+                    function_call(basic_block)
                 case Keyword.VOID | Keyword.FUNCTION:
                     function_declaration()
+                case Token.SEPARATOR:
+                    file_stream.next_token()
+                    continue
+                case Token.CLOSE_BRACE:
+                    break
                 case _:
+                    print("Fall-through case in statement parsing")
                     break
         return
         
