@@ -1,0 +1,21 @@
+main
+var zoink67, legalegends;
+{
+let zoink67 <- 67;
+let legalegends <- 200;
+
+call OutputNum(zoink67);
+
+if zoink67 < legalegends then
+    let zoink67 <- zoink67 * zoink67;
+    call OutputNum(zoink67);
+fi
+
+if zoink67 < legalegends then
+    let legalegends <- zoink67;
+fi
+
+call OutputNum(legalegends);
+
+}
+.

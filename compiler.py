@@ -6,7 +6,7 @@ from tokenizer import Keyword, Token, SourceCode
 from output import OutStream, open_files, close_files
 
 # MODIFY TO TARGET SOURCE CODE FILE
-SOURCE_CODE_FILE_NAME = "if_else_nested_5.txt"
+SOURCE_CODE_FILE_NAME = "while_nested_2.txt"
 
 # CONSOLE OUTPUT TOGGLE
 OUTPUT_TO_CONSOLE = False
@@ -63,11 +63,22 @@ class Operator(Enum):
                 raise SyntaxError(f"Expected valid comparison operator token")
 
 class Instruction():
-    def __init__(self, ssa_value: int = None, operator: Operator = None, operand_1: str = "", operand_2: str = ""):
+    def __init__(self, ssa_value: int = None, operator: Operator = None,
+                 operand_1: str = "", operand_2: str = "",
+                 operand_1_variable_name: str = "", operand_2_variable_name: str = ""):
         self.ssa_value = ssa_value  
         self.operator = operator
         self.operand_1 = operand_1
         self.operand_2 = operand_2
+        self.operand_1_variable_name = operand_1_variable_name
+        self.operand_2_variable_name = operand_2_variable_name
+
+    def associate_variable_names(self, variable_name_to_ssa_value: dict[str, int]) -> None:
+        for variable_name, ssa_value in variable_name_to_ssa_value.items():
+            if self.operand_1 == ssa_value:
+                self.operand_1_variable_name = variable_name
+            if self.operand_2 == ssa_value:
+                self.operand_2_variable_name = variable_name
 
     def __str__(self) -> str:
         if self.operator == Operator.CONST:
@@ -85,12 +96,14 @@ class Instruction():
 
 class BasicBlock():
     def __init__(self, block_number: int = None):
-        self.number = block_number
-        self.instructions = []
-        self.join_instructions = []
-        self.dominated_by = []
-        self.variable_names_to_latest_ssa_values = dict()
-        self.is_join_block = False
+        self.number: int = block_number
+        self.instructions: list[Instruction] = []
+        self.join_instructions: list[Instruction] = []
+        self.dominated_by: list[BasicBlock] = []
+        self.variable_names_to_latest_ssa_values: dict[str, int] = dict()
+        self.is_if_merge_point: bool = False
+        self.contains_if: bool = False
+        self.contains_while: bool = False
     
     def get_starting_ssa_value(self) -> int:
         if self.join_instructions:
@@ -153,7 +166,7 @@ class Dot():
     def __str__(self) -> str:
         content = []
         for bb in self.basic_blocks:
-            if bb.is_join_block:
+            if bb.is_if_merge_point:
                 content.append(Dot.translate_join_block(bb))
             else:
                 content.append(Dot.translate_block(bb))
@@ -212,15 +225,18 @@ class Program:
         self._ssa_constant_value_counter = -1
         self.constants_to_ssa_values = dict()
 
-        self._predefined_functions = {"InputNum" : Operator.READ, "OutputNum" : Operator.WRITE, "OutputNewLine" : Operator.WRITE_NEW_LINE}
-        self.functions = self._predefined_functions.copy()
+        self.predefined_functions = {"InputNum" : Operator.READ, "OutputNum" : Operator.WRITE, "OutputNewLine" : Operator.WRITE_NEW_LINE}
+        self.functions = self.predefined_functions.copy()
 
         self.join_basic_block = None
-        self.if_else_stack = []
+        self.control_flow_stack = []
 
     def generate_ssa_value(self) -> int:
         self._ssa_value_counter += 1
         return self._ssa_value_counter - 1
+    
+    def peek_next_ssa_value(self) -> int:
+        return self._ssa_value_counter
     
     def generate_ssa_const_value(self) -> int:
         self._ssa_constant_value_counter -= 1
@@ -261,8 +277,16 @@ class Program:
         for basic_block in self.basic_blocks.keys():
             emit(f"Basic Block {basic_block}", outstream=object_outstream)
             for instruction in self.basic_blocks[basic_block].get_instructions():
+                if instruction.operator is Operator.EMPTY_INSTRUCTION:
+                    # print different
+                    pass
                 emit(instruction, outstream=object_outstream)
             emit(outstream=object_outstream)
+
+    def fill_empty_instructions(self) -> None:
+        for basic_block in self.basic_blocks.values():
+            if not basic_block.get_instructions():
+                basic_block.instructions.append(Instruction(self.generate_ssa_value(), Operator.EMPTY_INSTRUCTION))
         
 def emit(content: str = "", outstream=None) -> None:
     print(content, file=outstream)
@@ -301,6 +325,7 @@ def compile(file_name: str = None) -> None:
             match token:
                 case Token.PLUS:
                     add_instruction = Instruction(None, Operator.ADD, ssa_value, term(basic_block))
+                    add_instruction.associate_variable_names(basic_block.variable_names_to_latest_ssa_values)
                     ssa_value = program.find_subexpression_ssa_value(basic_block, add_instruction)
                     if ssa_value is None: # create new add instruction between two operands
                         ssa_value = program.generate_ssa_value()
@@ -308,6 +333,7 @@ def compile(file_name: str = None) -> None:
                         basic_block.instructions.append(add_instruction)
                 case Token.MINUS:
                     sub_instruction = Instruction(None, Operator.SUB, ssa_value, term(basic_block))
+                    sub_instruction.associate_variable_names(basic_block.variable_names_to_latest_ssa_values)
                     ssa_value = program.find_subexpression_ssa_value(basic_block, sub_instruction)
                     if ssa_value is None: # create new sub instruction between two operands
                         ssa_value = program.generate_ssa_value()
@@ -323,6 +349,7 @@ def compile(file_name: str = None) -> None:
             match token:
                 case Token.MULTIPLY:
                     mul_instruction = Instruction(None, Operator.MUL, ssa_value, factor(basic_block))
+                    mul_instruction.associate_variable_names(basic_block.variable_names_to_latest_ssa_values)
                     new_ssa_value = program.find_subexpression_ssa_value(basic_block, mul_instruction)
                     if new_ssa_value is None:
                         new_ssa_value = program.generate_ssa_value()
@@ -330,6 +357,7 @@ def compile(file_name: str = None) -> None:
                         basic_block.instructions.append(mul_instruction)
                 case Token.DIVIDE:
                     div_instruction = Instruction(None, Operator.DIV, ssa_value, factor(basic_block))
+                    div_instruction.associate_variable_names(basic_block.variable_names_to_latest_ssa_values)
                     new_ssa_value = program.find_subexpression_ssa_value(basic_block, div_instruction)
                     if new_ssa_value is None:
                         new_ssa_value = program.generate_ssa_value()
@@ -380,22 +408,26 @@ def compile(file_name: str = None) -> None:
         function_arguments = []
         if file_stream.peek_token() == Token.OPEN_PARENTHESES:
             file_stream.next_token() # consume Token.OPEN_PARENTHESES
-            function_arguments.append(file_stream.peek_token())
-            file_stream.next_token() # consume first function argument
+            function_arguments.append(expression(basic_block))
             while file_stream.peek_token() == Token.COMMA:
-                function_arguments.append(expression())
+                function_arguments.append(expression(basic_block))
             if file_stream.peek_token() != Token.CLOSE_PARENTHESES:
                 raise SyntaxError(f"Expected \')\' to close called function arguments")
             file_stream.next_token()
         new_ssa_value = program.generate_ssa_value()
-        operation_name = program.functions[function_name] # // FLAG assuming built-in functions
-        function_call_instruction = Instruction(new_ssa_value, operation_name, *function_arguments)
-        basic_block.instructions.append(function_call_instruction)
+        if function_name in program.predefined_functions:
+            operation_name = program.functions[function_name]
+            function_call_instruction = Instruction(new_ssa_value, operation_name, *function_arguments)
+            function_call_instruction.associate_variable_names(basic_block.variable_names_to_latest_ssa_values)
+            basic_block.instructions.append(function_call_instruction)
+        else:
+            raise NotImplementedError(f"User-defined functions not yet implemented")
 
     def if_then_else_fi(if_basic_block: BasicBlock) -> None:
+        if_basic_block.contains_if = True
         then_basic_block = program.create_new_basic_block()
         join_basic_block = program.create_new_basic_block()
-        join_basic_block.is_join_block = True
+        join_basic_block.is_if_merge_point = True
         program.basic_blocks[then_basic_block.number] = then_basic_block
         program.basic_blocks[join_basic_block.number] = join_basic_block
         then_basic_block.variable_names_to_latest_ssa_values = if_basic_block.variable_names_to_latest_ssa_values.copy()
@@ -417,6 +449,7 @@ def compile(file_name: str = None) -> None:
         right_ssa_value = expression(if_basic_block)
         compare_ssa_value = program.generate_ssa_value()
         compare_instruction = Instruction(compare_ssa_value, Operator.CMP, left_ssa_value, right_ssa_value)
+        compare_instruction.associate_variable_names(if_basic_block.variable_names_to_latest_ssa_values)
         program.basic_blocks[if_basic_block.number] = if_basic_block
         if_basic_block.instructions.append(compare_instruction)
         branch_operator = Operator.map_comparison_operator(compare_operator_token)
@@ -427,11 +460,13 @@ def compile(file_name: str = None) -> None:
             raise SyntaxError(f"Expected \'then\' token")
         file_stream.next_token() # consume Keyword.THEN
         statement_sequence(then_basic_block)
-        program.if_else_stack.append(then_basic_block)
-        for i in then_basic_block.get_instructions():
-            if i.operator is Operator.CMP:
-                program.if_else_stack.pop()
-                break
+        program.control_flow_stack.append(then_basic_block)
+        if then_basic_block.contains_if:
+            program.control_flow_stack.pop()
+        # for i in then_basic_block.get_instructions():
+        #     if i.operator is Operator.CMP:
+        #         program.if_else_stack.pop()
+        #         break
 
         # processing else clause
         else_basic_block = None
@@ -447,13 +482,15 @@ def compile(file_name: str = None) -> None:
                 else_basic_block.instructions.append(Instruction(program.generate_ssa_value(), Operator.EMPTY_INSTRUCTION))
             branch_from_if_to_else_instruction = Instruction(branch_instruction_ssa_value, branch_operator, compare_ssa_value, else_basic_block.get_starting_ssa_value())
             if_basic_block.instructions.append(branch_from_if_to_else_instruction)
-            program.if_else_stack.append(else_basic_block)
-            for i in else_basic_block.get_instructions():
-                if i.operator is Operator.CMP:
-                    program.if_else_stack.pop()
-                    break
+            program.control_flow_stack.append(else_basic_block)
+            if else_basic_block.contains_if:
+                program.control_flow_stack.pop()    
+            # for i in else_basic_block.get_instructions():
+            #     if i.operator is Operator.CMP:
+            #         program.if_else_stack.pop()
+            #         break
         else:
-            program.if_else_stack.append(if_basic_block)
+            program.control_flow_stack.append(if_basic_block)
 
         if file_stream.peek_token() != Keyword.FI:
             raise SyntaxError(f"Expected \'fi\' token")
@@ -464,15 +501,15 @@ def compile(file_name: str = None) -> None:
         else:
             dot.declare_branch_arrow(if_basic_block, join_basic_block)
         head_else_basic_block = else_basic_block
-        else_basic_block = program.if_else_stack.pop()
-        then_basic_block = program.if_else_stack.pop()
-        program.save_join_basic_block(join_basic_block)
+        else_basic_block = program.control_flow_stack.pop()
+        then_basic_block = program.control_flow_stack.pop()
         for variable_name in then_basic_block.variable_names_to_latest_ssa_values.keys():
             then_ssa_value = then_basic_block.variable_names_to_latest_ssa_values[variable_name]
             branched_ssa_value = else_basic_block.variable_names_to_latest_ssa_values[variable_name] if else_basic_block else if_basic_block.variable_names_to_latest_ssa_values[variable_name]
             if then_ssa_value == branched_ssa_value:
                 continue
             phi_instruction = Instruction(program.generate_ssa_value(), Operator.PHI, then_ssa_value, branched_ssa_value)
+            phi_instruction.associate_variable_names(then_basic_block.variable_names_to_latest_ssa_values)
             join_basic_block.join_instructions.append(phi_instruction)
             program.constants_to_ssa_values[variable_name] = phi_instruction.ssa_value
             join_basic_block.variable_names_to_latest_ssa_values[variable_name] = phi_instruction.ssa_value
@@ -490,24 +527,82 @@ def compile(file_name: str = None) -> None:
             branch_instruction_from_if_to_join = Instruction(program.generate_ssa_value(), Operator.map_comparison_operator(compare_operator_token), compare_ssa_value, join_basic_block.get_starting_ssa_value())
             if_basic_block.instructions.append(branch_instruction_from_if_to_join)
             dot.declare_fall_through_arrow(then_basic_block, join_basic_block)
-        program.if_else_stack.append(join_basic_block)
+        program.control_flow_stack.append(join_basic_block)
+        program.save_join_basic_block(join_basic_block)
         return
         
-    def while_do_od() -> None:
+    def _rewrite_do_ssa_values(variable_name: str, new_ssa_value: int, while_basic_block: BasicBlock) -> None:
+        basic_blocks = []
+        for basic_block in program.basic_blocks.values():
+            if while_basic_block in basic_block.dominated_by:
+                basic_blocks.append(basic_block)
+
+        for basic_block in basic_blocks:
+            for instruction in basic_block.get_instructions():
+                if instruction.operand_1_variable_name == variable_name and instruction.operand_1 == while_basic_block.variable_names_to_latest_ssa_values[variable_name]:
+                    instruction.operand_1 = new_ssa_value
+                if instruction.operand_2_variable_name == variable_name and instruction.operand_2 == while_basic_block.variable_names_to_latest_ssa_values[variable_name]:
+                    instruction.operand_2 = new_ssa_value
+        return None
+
+
+    def while_do_od(while_basic_block: BasicBlock) -> None:
+        while_basic_block.contains_while = True
+        do_basic_block = program.create_new_basic_block()
+        od_basic_block = program.create_new_basic_block()
+        program.basic_blocks[do_basic_block.number] = do_basic_block
+        program.basic_blocks[od_basic_block.number] = od_basic_block
+        do_basic_block.variable_names_to_latest_ssa_values = while_basic_block.variable_names_to_latest_ssa_values.copy()
+        od_basic_block.variable_names_to_latest_ssa_values = while_basic_block.variable_names_to_latest_ssa_values.copy()
+        do_basic_block.dominated_by = [while_basic_block] + while_basic_block.dominated_by
+        od_basic_block.dominated_by = [while_basic_block] + while_basic_block.dominated_by
+        dot.declare_block(while_basic_block)
+        dot.declare_block(do_basic_block)
+        dot.declare_block(od_basic_block)
+        dot.declare_fall_through_arrow(while_basic_block, do_basic_block)
+
         if file_stream.peek_token() != Keyword.WHILE:
             raise SyntaxError(f"Expected \'while\' token")
         file_stream.next_token() # consume Keyword.WHILE
-        left_hand_side = expression()
-        relation_operator = file_stream.peek_token()
+        left_ssa_value = expression(while_basic_block)
+        compare_operator_token = file_stream.peek_token()
         file_stream.next_token()
-        right_hand_side = expression()
+        right_ssa_value = expression(while_basic_block)
+        compare_instruction = Instruction(program.generate_ssa_value(), Operator.CMP, left_ssa_value, right_ssa_value)
+        compare_instruction.associate_variable_names(while_basic_block.variable_names_to_latest_ssa_values)
+        while_basic_block.instructions.append(compare_instruction)
+        branch_operator = Operator.map_comparison_operator(compare_operator_token)
+        branch_instruction_from_while_to_od = Instruction(program.generate_ssa_value(), branch_operator, compare_instruction.ssa_value, None)
+        while_basic_block.instructions.append(branch_instruction_from_while_to_od)
+        
         if file_stream.peek_token() != Keyword.DO:
             raise SyntaxError(f"Expected \'do\' token")
         file_stream.next_token() # consume Keyword.DO
-        statement_sequence()
+        statement_sequence(do_basic_block)
+        if not do_basic_block.contains_while and not do_basic_block.contains_if:
+            program.control_flow_stack.append(do_basic_block)
+        do_basic_block = program.control_flow_stack.pop()
+        for variable_name in do_basic_block.variable_names_to_latest_ssa_values:
+            if do_basic_block.variable_names_to_latest_ssa_values[variable_name] == while_basic_block.variable_names_to_latest_ssa_values[variable_name]:
+                continue
+            while_ssa_value = while_basic_block.variable_names_to_latest_ssa_values[variable_name]
+            do_ssa_value = do_basic_block.variable_names_to_latest_ssa_values[variable_name]
+            phi_instruction = Instruction(program.generate_ssa_value(), Operator.PHI, do_ssa_value, while_ssa_value)
+            phi_instruction.associate_variable_names(while_basic_block.variable_names_to_latest_ssa_values)
+            while_basic_block.join_instructions.append(phi_instruction)
+            _rewrite_do_ssa_values(variable_name, phi_instruction.ssa_value, while_basic_block)
+        
+        do_basic_block.instructions.append(Instruction(program.generate_ssa_value(), Operator.BRANCH, while_basic_block.get_starting_ssa_value()))
+        branch_instruction_from_while_to_od.operand_2 = program.peek_next_ssa_value()
+        dot.declare_branch_arrow(do_basic_block, while_basic_block)
+        dot.declare_branch_arrow(while_basic_block, od_basic_block)
+        program.control_flow_stack.append(od_basic_block)
+        program.save_join_basic_block(od_basic_block)
+        
         if file_stream.peek_token() != Keyword.OD:
             raise SyntaxError(f"Expected \'od\' token")
         file_stream.next_token()
+        return
     
     def returning() -> None:
         if file_stream.peek_token() != Keyword.RETURN:
@@ -540,7 +635,7 @@ def compile(file_name: str = None) -> None:
                 case Keyword.FI:
                     break
                 case Keyword.WHILE:
-                    while_do_od()
+                    while_do_od(basic_block)
                 case Keyword.OD:
                     break
                 case Keyword.RETURN:
@@ -628,6 +723,7 @@ def compile(file_name: str = None) -> None:
             dot.declare_block(program.basic_blocks[1])
             dot.declare_arrow(program.basic_blocks[0], program.basic_blocks[1])
             statement_sequence(program.basic_blocks[1])
+            program.fill_empty_instructions()
             if file_stream.peek_token() != Token.CLOSE_BRACE:
                 raise SyntaxError(f"Expected \'}}\' to close statement sequence")
             file_stream.next_token()

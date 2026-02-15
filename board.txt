@@ -3,10 +3,18 @@ breeuhhh
 development
     generating and emitting SSA
         while-do
+            bugs
+                variable names overwriting themselves in while-do-od in the case where multiple variables intially share the same ssa value
+                
 
-        consequent code optimization
-            subexpression elimination
-            dead code elimination
+            current
+                implement ssa generation
+                    while do
+                        yuja ep 3, 60 minutes
+                    generate diverged instruction methods:
+                        "on the fly now"
+                        before eliminating an instruction, you create a dummy instruction that is not counted as deleted
+                    idea: every instruction has a weak queue for variable associations
     
     function calls
 
