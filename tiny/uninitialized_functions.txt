@@ -1,0 +1,39 @@
+main
+var a, b;
+
+void function uphold(a, b); var c, d; {
+    if a > b then
+        let a <- 1 + 2;
+        if a * b == a * b then
+            let a <- a * b + a * b;
+            if a * b * a * b != a * b * a * b then
+                let a <- a * b * a * b;
+            fi
+        fi
+    else
+        let c <- 2 + 1;
+        if 10 > 20 then
+            let a <- 10 + 20;
+        else
+            let c <- 20 + 10;
+            if 100 > 200 then
+                let a <- 100 + 200;
+            else
+                let c <- 200 + 100;
+                if 1000 > 2000 then
+                    let a <- 1000 + 2000;
+                else
+                    let c <- 2000 + 1000;
+                fi
+            fi
+        fi
+    fi
+    return c;
+};
+
+{
+let a <- 1;
+let b <- call uphold(a, a);
+call OutputNum(b);
+}
+.

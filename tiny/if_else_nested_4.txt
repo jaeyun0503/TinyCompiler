@@ -10,7 +10,7 @@ if 1 > 2 then
     if 12 == 12 then
         let zoink67 <- 12 + 12;
         if 1212 != 1212 then
-            let zoink67 <- 1212 + 1212
+            let zoink67 <- 1212 + 1212;
         fi
     fi
 else

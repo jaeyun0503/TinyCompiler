@@ -1,0 +1,27 @@
+main
+var a, b; 
+
+void function compute(a, b); var c, d; {
+    let c <- a;
+    let d <- b;
+    call OutputNum(a);
+    call OutputNum(b);
+    if a + b == c + d then
+        call OutputNum(a + b + c + d);
+    else
+        call OutputNum(a + b - c - d);
+    fi
+    return;
+};
+
+void function sum(a, b); var c; {
+    let c <- a + b;
+    return c;
+};
+
+{
+let a <- 1;
+let b <- call sum(a, a);
+call OutputNum(b);
+}
+.
