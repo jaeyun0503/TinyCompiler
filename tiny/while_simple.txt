@@ -10,10 +10,13 @@ let j <- i;
 while x < 10 do
     let x <- i + 1;
     let y <- j + 1;
-    let i <- i + 1;
+    let i <- x;
 od
 
+call OutputNum(x + x + x);
+call OutputNum(y + y + y);
+let i <- i * 2;
+call OutputNum(x);
 
 }.
 
-// lecture example

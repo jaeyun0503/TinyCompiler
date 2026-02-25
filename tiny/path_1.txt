@@ -1,0 +1,27 @@
+main
+var a, b, c, d, e, f, g, h;
+
+{
+
+let a <- 1;
+let b <- 0;
+let c <- 0;
+let d <- 0;
+let e <- 0;
+let f <- 0;
+let g <- 0;
+let h <- 0;
+
+if a < b then
+    call OutputNum(a);
+    while a < b do
+        call OutputNum(a);
+    od
+else
+    call OutputNum(b);
+fi
+
+
+}
+.
+
