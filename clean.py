@@ -1,5 +1,5 @@
 """
-Run this script to empty o and dot folders.
+Run this script to empty o, dot, regdot, and ig folders.
 """
 
 import os
@@ -18,3 +18,5 @@ def empty_folder(path):
 if __name__ == "__main__":
     empty_folder(Path(__file__).resolve().parent / "o")
     empty_folder(Path(__file__).resolve().parent / "dot")
+    empty_folder(Path(__file__).resolve().parent / "regdot")
+    empty_folder(Path(__file__).resolve().parent / "ig")

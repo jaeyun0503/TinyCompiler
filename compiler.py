@@ -1,12 +1,13 @@
 from sys import stdout as STDOUT
-from enum import Enum
 from pathlib import Path
+from enum import Enum
+from queue import Queue
 
 from tokenizer import Keyword, Token, SourceCode
 from output import OutStream, open_files, close_files
 
 # MODIFY TO TARGET SOURCE CODE FILE
-SOURCE_CODE_FILE_NAME = "while_example.txt"
+SOURCE_CODE_FILE_NAME = "if_else_simple.txt"
 
 # CONSOLE OUTPUT TOGGLE
 OUTPUT_TO_CONSOLE = False
@@ -40,6 +41,7 @@ class Operator(Enum):
     SET_PARAMETER_2 = "setpar2"
     SET_PARAMETER_3 = "setpar3"
     EMPTY_INSTRUCTION = "\\<empty\\>"
+    MOV = "mov"
 
     def __str__(self) -> str:
         return self.value
@@ -103,6 +105,134 @@ class Operator(Enum):
             case _:
                 raise SyntaxError(f"Expected valid math operator token")
 
+class Color:
+    r_colors = {1: "#FFB3BA", 2: "#FFDFBA", 3: "#FFFFBA", 4: "#BAFFC9", 5: "#BAE1FF"}
+    v_color = "#A1A1A1"
+
+    @classmethod
+    def get_color(cls, register_number: int) -> str:
+        return cls.r_colors.get(register_number, cls.v_color)
+
+class RegisterAllocator:
+    RELEVANT_OPERATORS = {
+            Operator.CMP, Operator.PHI, Operator.JUMP_SUBROUTINE,
+            Operator.ADD, Operator.SUB, Operator.MUL, Operator.DIV,
+            Operator.READ, Operator.EMPTY_INSTRUCTION, Operator.MOV
+    }
+    BRANCH_OPERATORS = {
+            Operator.BRANCH, Operator.BRANCH_NOT_EQUAL, Operator.BRANCH_EQUAL,
+            Operator.BRANCH_LESS_THAN, Operator.BRANCH_LESS_THAN_EQUAL,
+            Operator.BRANCH_GREATER_THAN, Operator.BRANCH_GREATER_THAN_EQUAL
+    }
+    MAX_REGISTERS = 5
+
+    @classmethod
+    def regno_to_regname(cls, register_number: int) -> str:
+        """
+        Given a register number, returns string literal of register name
+        R represents register
+        V represents virtual register (memory)
+        Register numbers are not reset when starting V
+        register_number: int
+        @return: str
+        """
+        if type(register_number) is str:
+            return register_number
+        if register_number < 0:
+            return register_number
+        if register_number <= cls.MAX_REGISTERS:
+            return f"R{register_number}"
+        else:
+            return f"V{register_number}"
+
+    @classmethod
+    def welsh_powell_color(cls, al: dict[int, set[int]]) -> dict[int, int]:
+        """
+        Takes adjacency list and returns graph coloring
+        Graph coloring is mapping of int node to int color
+        al: dict[int, set[int]]
+        @return: dict[int, int]
+        """
+        NUMBER_OF_NODES = len(al.keys())
+        degrees_nodes: dict[int, set[int]] = dict()
+        for node, neighbors in al.items():
+            degree = len(neighbors)
+            if degree not in degrees_nodes:
+                degrees_nodes[degree] = set()
+            degrees_nodes[degree].add(node)
+        
+        sorted_nodes: list[int] = []
+        for node in sorted(degrees_nodes.keys(), reverse=True):
+            sorted_nodes.extend(sorted(degrees_nodes[node])) # extra sorting for reproducibility
+
+        nodes_colors: dict[int, int] = dict()
+        colored_nodes = set()
+        color = 1
+        while len(colored_nodes) < NUMBER_OF_NODES:
+            for node in sorted_nodes:
+                if node in colored_nodes:
+                    continue
+                if all(nodes_colors.get(neighbor, None) != color for neighbor in al[node]):
+                    nodes_colors[node] = color
+                    colored_nodes.add(node)
+            color += 1
+        
+        return nodes_colors
+    
+
+ig_outstream = None
+class InterferenceGraph:
+    def __init__(self):
+        self.adjacency_list: dict[int, set[int]] = dict()
+
+    def declare_edge(self, node_1: int, node_2: int) -> None:
+        if node_1 not in self.adjacency_list:
+            self.adjacency_list[node_1] = set()
+        if node_2 not in self.adjacency_list:
+            self.adjacency_list[node_2] = set()
+        self.adjacency_list[node_1].add(node_2)
+        self.adjacency_list[node_2].add(node_1)
+        return
+    
+    def emit_graph(self, nodes_registers: dict[int, int]) -> None:
+        dot_string = InterferenceGraph.translate_adjacency_list_to_dot(self.adjacency_list, nodes_registers)
+        emit(dot_string, outstream=ig_outstream)
+        return None
+    
+    @classmethod
+    def translate_adjacency_list_to_dot(cls, interference: dict[int, set[int]], nodes_registers: dict[int, int]) -> str:
+        """
+        Generate a DOT-format string for an interference graph
+        described by an adjacency list: dict[int, set[int]].
+
+        Nodes are integers, edges are undirected.
+        """
+        lines = ["graph InterferenceGraph {", "\tlayout=circo;", "\tnode [shape=circle, style=filled];"]
+        seen = set()
+
+        for node, neighbors in interference.items():
+            lines.append(f"\t{node};")  # ensure node appears even if isolated
+            for neighbor in neighbors:
+                if node == neighbor:
+                    continue  # avoid self-loops
+                edge = tuple(sorted((node, neighbor))) # node to node
+                if edge not in seen:
+                    seen.add(edge)
+                    # node_1_register = nodes_registers[edge[0]]
+                    # node_2_register = nodes_registers[edge[1]]
+                    # node_1_name = RegisterAllocator.regno_to_regname(node_1_register)
+                    # node_2_name = RegisterAllocator.regno_to_regname(node_2_register)
+                    # lines.append(f"\t{node_1_name} -- {node_2_name};")
+                    lines.append(f"\t{edge[0]} -- {edge[1]};")
+
+        lines.append("\n")
+        for node in interference.keys():
+            register = nodes_registers[node]
+            lines.append(f"\t{node} [fillcolor=\"{Color.get_color(register)}\"];")
+        lines.append("}")
+        return "\n".join(lines)
+
+
 class Instruction:
     def __init__(self, ssa_value: int = None, operator: Operator = None,
                  operand_1: str = "", operand_2: str = "",
@@ -116,16 +246,24 @@ class Instruction:
         self.commons = [self]
 
     def is_common_subexpression(self, other) -> bool:
+        """
+        Checks if instruction has the same operator and operands
+        """
         if not isinstance(other, Instruction):
             return NotImplemented
         return self.operator == other.operator and self.operand_1 == other.operand_1 and self.operand_2 == other.operand_2
 
     def has_same_variables(self, other) -> bool:
+        """
+        Checks if instruction uses the same literals for operands
+        """
         if not isinstance(other, Instruction):
             return NotImplemented
         return self.operand_1_variable_name == other.operand_1_variable_name and self.operand_2_variable_name == other.operand_2_variable_name
 
     def __str__(self) -> str:
+        if self.ssa_value == "∞":
+            return f"{self.operator} {self.operand_1} {self.operand_2}".rstrip()
         if self.operator == Operator.CONST:
             return f"{self.ssa_value}: {self.operator}{self.operand_1}"
         else:
@@ -139,24 +277,34 @@ class Instruction:
             return NotImplemented
         return self.operator == other.operator and self.operand_1 == other.operand_1 and self.operand_2 == other.operand_2
     
-
 class BasicBlock:
     def __init__(self, block_number: int = None):
         self.number: int = block_number
-        self.instructions: list[Instruction] = []
         self.join_instructions: list[Instruction] = []
+        self.instructions: list[Instruction] = []
+        self.branch_instructions: list[Instruction] = []
         self.dominated_by: list[BasicBlock] = []
         self.variable_names_ssa_values: dict[str, int] = dict()
         self.vars_exps: dict[str, str] = dict()
-        self.is_join_block: bool = False
-        self.contains_if: bool = False
-        self.contains_while: bool = False
+        self.is_if_block: bool = False
+        self.is_pre_while_block: bool = False
+        self.is_while_block: bool = False
+        self.is_fi_block: bool = False
+        self.is_od_block: bool = False
+        self.if_block: BasicBlock = None
+        self.while_block: BasicBlock = None
+        self.od_block: BasicBlock = None
+        self.do_tail_block: BasicBlock = None
+        self.parents: set[BasicBlock] = set()
+        self.children: set[BasicBlock] = set()
     
     def get_starting_ssa_value(self) -> int:
         if self.join_instructions:
             return self.join_instructions[0].ssa_value
         elif self.instructions:
             return self.instructions[0].ssa_value
+        elif self.branch_instructions:
+            return self.branch_instructions[0].ssa_value
         else:
             return None
     
@@ -167,7 +315,7 @@ class BasicBlock:
         return self.__str__()
     
     def get_instructions(self) -> list[Instruction]:
-        return self.join_instructions + self.instructions
+        return self.join_instructions + self.instructions + self.branch_instructions
     
 class Function:
     def __init__(self):
@@ -179,6 +327,7 @@ class Function:
         self.const_basic_block: BasicBlock = None
         self.first_basic_block: BasicBlock = None
         self.basic_blocks: dict[int, BasicBlock] = []
+        self.last_basic_block: BasicBlock = None
 
         self.program: Program = None
         self.constants_to_ssa_values: dict[str, int] = dict()
@@ -227,8 +376,8 @@ class Function:
             for i in basic_block.get_instructions()[::-1]:
                 if i.is_common_subexpression(instruction):
                     i.commons.append(instruction)
-                    instruction.operand_2_variable_name = self.program.variables_used.pop()
-                    instruction.operand_1_variable_name = self.program.variables_used.pop()
+                    instruction.operand_2_variable_name = self.program.literals_used.pop()
+                    instruction.operand_1_variable_name = self.program.literals_used.pop()
                     return i.ssa_value
         return None
     
@@ -241,6 +390,7 @@ class Function:
         return f"{self.name}({tuple(self.formal_parameters)})"
 
 dot_outstream = None
+regdot_outstream = None
 class Dot:
     """
     Generates digraph representation of IR using DOT graph language
@@ -259,7 +409,7 @@ class Dot:
     def __init__(self):
         self.functions: list[Function] = []
         self.basic_blocks: set[BasicBlock] = set()
-        self.arrows: list = []
+        self.arrows: list[str] = []
     
     def declare_function(self, f: Function) -> None:
         self.functions.append(f)
@@ -282,12 +432,15 @@ class Dot:
     def emit_program(self) -> None:
         print(self.__str__(), file=dot_outstream)
 
+    def emit_regalloc_program(self) -> None:
+        print(self.__str__(), file=regdot_outstream)
+
     def __str__(self) -> str:
         content = []
         for f in self.functions:
             content.append(Dot.translate_function(f))
         for bb in self.basic_blocks:
-            if bb.is_join_block:
+            if bb.is_fi_block or (bb.is_while_block and not bb.is_pre_while_block):
                 content.append(Dot.translate_join_block(bb))
             else:
                 content.append(Dot.translate_block(bb))
@@ -350,6 +503,27 @@ class UninitializedWarning():
     
     def __str__(self):
         return f"WARNING: var {self.variable_name} is uninitialized before use in function {self.function_name}"
+    
+class ControlFlow:
+    def __init__(self):
+        self.paths: list[tuple[BasicBlock, BasicBlock]] = []
+        self.paths_reversed: list[tuple[BasicBlock, BasicBlock]] = []
+        self.src_dests_norm: dict[BasicBlock, set[BasicBlock]] = dict()
+        self.src_dests_reversed: dict[BasicBlock, set[BasicBlock]] = dict()
+
+    def add_path(self, from_bb: BasicBlock, to_bb: BasicBlock) -> None:
+        self.paths.append((from_bb, to_bb))
+        self.paths_reversed.append((to_bb, from_bb))
+        if from_bb not in self.src_dests_norm:
+            self.src_dests_norm[from_bb] = set()
+        self.src_dests_norm[from_bb].add(to_bb)
+        if to_bb not in self.src_dests_reversed:
+            self.src_dests_reversed[to_bb] = set()
+        self.src_dests_reversed[to_bb].add(from_bb)
+
+    @classmethod
+    def reverse_paths(cls, paths: list[tuple[BasicBlock, BasicBlock]]) -> list[tuple[BasicBlock, BasicBlock]]:
+        return [(to_bb, from_bb) for from_bb, to_bb in paths]
 
 object_outstream = None
 class Program:
@@ -367,11 +541,12 @@ class Program:
         self.predefined_functions = {"InputNum" : Operator.READ, "OutputNum" : Operator.WRITE, "OutputNewLine" : Operator.WRITE_NEW_LINE}
         self.functions = {self._MAIN_FUNCTION_PREDEFINITION: self.main_function}
         self.focused_function = None
+        self.input_num_hash_counter = 1
 
-        self.variables_used = []
+        self.literals_used = []
         self.term_count = 1
         self.expression_has_terms = False
-        self.variable_name_ready = False
+        self.literal_ready = False
 
         self.warnings = []
 
@@ -388,6 +563,7 @@ class Program:
     
     def create_new_basic_block(self) -> BasicBlock:
         new_bb = BasicBlock(self._basic_block_counter)
+        new_bb.instructions.append(Instruction(self.generate_ssa_value(), Operator.EMPTY_INSTRUCTION))
         self._basic_block_counter += 1
         return new_bb
     
@@ -403,15 +579,16 @@ class Program:
         f.program = self
         f.const_basic_block = self.create_new_basic_block()
         f.first_basic_block = self.create_new_basic_block()
+        f.last_basic_block = f.first_basic_block
         f.basic_blocks = {f.const_basic_block.number : f.const_basic_block,
                           f.first_basic_block.number : f.first_basic_block}
         
     # def save_variable(self, variable_name: str) -> None:
     #     self.variable_used = variable_name
     
-    def load_variable(self) -> str:
-        self.variable_name_ready = False
-        return self.variables_used.pop()
+    def load_literal(self) -> str:
+        self.literal_ready = False
+        return self.literals_used.pop()
 
     def warn(self, message: Warning) -> None:
         self.warnings.append(message)
@@ -427,6 +604,8 @@ class Program:
                     if instruction.operator is Operator.EMPTY_INSTRUCTION:
                         instruction.operator = "<empty>"
                     emit(instruction, outstream=object_outstream)
+                    if instruction.operator == "<empty>":
+                        instruction.operator = Operator.EMPTY_INSTRUCTION
                 emit(outstream=object_outstream)
         
 def emit(content: str = "", outstream=None) -> None:
@@ -438,24 +617,41 @@ def compile(file_name: str = None) -> None:
     file_stream = SourceCode(Path(__file__).resolve().parent / SOURCE_CODE_FOLDER_NAME / Path(SOURCE_CODE_FILE_NAME))
     program = Program()
     dot = Dot()
+    ig = InterferenceGraph()
+    cf = ControlFlow()
 
     # Output handling
     OBJECT_FOLDER_NAME = "o"
     DOT_FOLDER_NAME = "dot"
+    IG_FOLDER_NAME = "ig"
+    REGDOT_FOLDER_NAME = "regdot"
     Path(Path(__file__).resolve().parent / OBJECT_FOLDER_NAME).mkdir(parents=True, exist_ok=True)
     Path(Path(__file__).resolve().parent / DOT_FOLDER_NAME).mkdir(parents=True, exist_ok=True)
+    Path(Path(__file__).resolve().parent / IG_FOLDER_NAME).mkdir(parents=True, exist_ok=True)
+    Path(Path(__file__).resolve().parent / REGDOT_FOLDER_NAME).mkdir(parents=True, exist_ok=True)
     OBJECT_FILE_PATH = Path(__file__).resolve().parent / OBJECT_FOLDER_NAME / Path(SOURCE_CODE_FILE_NAME).with_suffix(".o")
     DOT_FILE_PATH = Path(__file__).resolve().parent / DOT_FOLDER_NAME / Path(SOURCE_CODE_FILE_NAME).with_suffix(".dot")
-    output_file_paths = [OBJECT_FILE_PATH, DOT_FILE_PATH]
+    IG_FILE_PATH = Path(__file__).resolve().parent / IG_FOLDER_NAME / Path(SOURCE_CODE_FILE_NAME).with_suffix(".ig")
+    REGDOT_FILE_PATH = Path(__file__).resolve().parent / REGDOT_FOLDER_NAME / Path(SOURCE_CODE_FILE_NAME).with_suffix(".dot")
+    output_file_paths = [OBJECT_FILE_PATH, DOT_FILE_PATH, IG_FILE_PATH, REGDOT_FILE_PATH]
     output_streams = open_files(output_file_paths)
     object_output_streams = [STDOUT] if OUTPUT_TO_CONSOLE else []
     dot_output_streams = [STDOUT] if OUTPUT_TO_CONSOLE else []
+    ig_output_streams = [STDOUT] if OUTPUT_TO_CONSOLE else []
+    regdot_output_streams = [STDOUT] if OUTPUT_TO_CONSOLE else []
     object_output_streams.append(output_streams[0])
     dot_output_streams.append(output_streams[1])
+    ig_output_streams.append(output_streams[2])
+    regdot_output_streams.append(output_streams[3])
+
     global object_outstream
     global dot_outstream
+    global ig_outstream
+    global regdot_outstream
     object_outstream = OutStream(*object_output_streams)
     dot_outstream = OutStream(*dot_output_streams)
+    ig_outstream = OutStream(*ig_output_streams)
+    regdot_outstream = OutStream(*regdot_output_streams)
 
     def consume_token(*tokens) -> None:
         if file_stream.peek_token() not in tokens:
@@ -469,8 +665,8 @@ def compile(file_name: str = None) -> None:
         if ssa_value is None:
             ssa_value = program.generate_ssa_value()
             math_instruction.ssa_value = ssa_value
-            math_instruction.operand_2_variable_name = program.variables_used.pop()
-            math_instruction.operand_1_variable_name = program.variables_used.pop()
+            math_instruction.operand_2_variable_name = program.literals_used.pop()
+            math_instruction.operand_1_variable_name = program.literals_used.pop()
             basic_block.instructions.append(math_instruction)
         return ssa_value
 
@@ -478,7 +674,7 @@ def compile(file_name: str = None) -> None:
     def expression(basic_block: BasicBlock) -> int:
         ssa_value = expression_lower(basic_block)
         if program.term_count == 1:
-            program.variable_name_ready = True
+            program.literal_ready = True
         # program.term_count = 1
         return ssa_value
 
@@ -487,7 +683,7 @@ def compile(file_name: str = None) -> None:
         operator_token = ""
         while file_stream.peek_token() in [Token.PLUS, Token.MINUS]:
             if program.term_count > 1:
-                program.variables_used.append("")
+                program.literals_used.append("")
             program.term_count += 1
             operator_token = file_stream.peek_token()
             file_stream.next_token()
@@ -499,7 +695,7 @@ def compile(file_name: str = None) -> None:
         operator_token = ""
         while file_stream.peek_token() in ["*", "/"]:
             if program.term_count > 1:
-                program.variables_used.append("")
+                program.literals_used.append("")
             program.term_count += 1
             operator_token = file_stream.peek_token()
             file_stream.next_token()
@@ -525,10 +721,10 @@ def compile(file_name: str = None) -> None:
         operand = file_stream.peek_token()
         ssa_value = None
         if operand == Keyword.CALL:
-            program.variables_used.append("") # //FLAG,  might be an issue here when an expression includes a func call
+            #program.literals_used.append("") # //FLAG,  might be an issue here when an expression includes a func call
             return function_call(basic_block)
         elif operand.isdigit():
-            program.variables_used.append(str(operand))
+            program.literals_used.append(str(operand))
             ssa_value = program.focused_function.find_const_ssa_value(operand)
         else:
             if operand not in basic_block.variable_names_ssa_values:
@@ -537,7 +733,7 @@ def compile(file_name: str = None) -> None:
                 basic_block.variable_names_ssa_values[operand] = ssa_value
             else:
                 ssa_value = basic_block.variable_names_ssa_values[operand]
-            program.variables_used.append(operand)
+            program.literals_used.append(operand)
 
         file_stream.next_token()
         return ssa_value
@@ -549,12 +745,25 @@ def compile(file_name: str = None) -> None:
         """
         instruction_count = term_count - 1
         buffer = []
-        for instruction in basic_block.get_instructions()[::-1][:instruction_count][::-1]:
+        index = 1
+        while index < term_count:
+            instruction = basic_block.instructions[-index]
+            if instruction.operator is Operator.JUMP_SUBROUTINE:
+                index += 1
+                continue
             buffer.append(str(instruction.commons[-1].operator))
             buffer.append(f":")
             buffer.append(str(instruction.commons[-1].operand_1_variable_name))
             buffer.append(f":")
             buffer.append(str(instruction.commons[-1].operand_2_variable_name))
+            index += 1
+
+        # for instruction in basic_block.get_instructions()[::-1][:instruction_count][::-1]:
+        #     buffer.append(str(instruction.commons[-1].operator))
+        #     buffer.append(f":")
+        #     buffer.append(str(instruction.commons[-1].operand_1_variable_name))
+        #     buffer.append(f":")
+        #     buffer.append(str(instruction.commons[-1].operand_2_variable_name))
         return "".join(buffer)
 
     def assignment(basic_block: BasicBlock) -> int:
@@ -566,11 +775,11 @@ def compile(file_name: str = None) -> None:
         file_stream.next_token() # consume Token.ASSIGNMENT
         program.focused_function.constants_to_ssa_values[variable_name] = expression(basic_block) # map variable_name to SSA value
         expression_hash = None
-        if program.variable_name_ready:
-            expression_hash = program.load_variable()
+        if program.literal_ready:
+            expression_hash = program.load_literal()
             if expression_hash.isalpha() and expression_hash in basic_block.variable_names_ssa_values:
                 expression_hash = basic_block.vars_exps[expression_hash]
-            program.variable_name_ready = False
+            program.literal_ready = False
         else:
             expression_hash = _generate_expression_hash(basic_block, program.term_count)
             program.term_count = 1
@@ -583,26 +792,41 @@ def compile(file_name: str = None) -> None:
         function_name = file_stream.peek_token()
         file_stream.next_token() # consume function_name
         function_arguments = []
+        function_arguments_hashes = []
         if file_stream.peek_token() == Token.OPEN_PARENTHESES:
             file_stream.next_token() # consume Token.OPEN_PARENTHESES
             if file_stream.peek_token() != Token.CLOSE_PARENTHESES:
                 function_arguments.append(expression(basic_block))
-                if program.variable_name_ready:
-                    program.load_variable()
+                if program.literal_ready:
+                    function_arguments_hashes.append(program.load_literal())
+                    program.literal_ready = False
+                else:
+                    expression_hash = _generate_expression_hash(basic_block, program.term_count)
+                    program.term_count = 1
+                    function_arguments_hashes.append(expression_hash)
                 while file_stream.peek_token() == Token.COMMA:
                     file_stream.next_token()
                     function_arguments.append(expression(basic_block))
-                    if program.variable_name_ready:
-                        program.load_variable()
+                    if program.literal_ready:
+                        function_arguments_hashes.append(program.load_literal())
+                        program.literal_ready = False
+                    else:
+                        expression_hash = _generate_expression_hash(basic_block, program.term_count)
+                        program.term_count = 1
+                        function_arguments_hashes.append(expression_hash)
                 if file_stream.peek_token() != Token.CLOSE_PARENTHESES:
                     raise SyntaxError(f"Expected \')\' to close called function arguments")
             file_stream.next_token()
         function_call_ssa_value = None
+        input_num_hash = f""
         if function_name in program.predefined_functions:
             operation_name = program.predefined_functions[function_name]
             function_call_instruction = Instruction(program.generate_ssa_value(), operation_name, *function_arguments)
             basic_block.instructions.append(function_call_instruction)
             function_call_ssa_value = function_call_instruction.ssa_value
+            if function_name == "InputNum":
+                input_num_hash = f"{program.input_num_hash_counter}:"
+                program.input_num_hash_counter += 1
         else:
             if function_name not in program.functions:
                 raise NotImplementedError(f"Function {function_name} does not exist")
@@ -614,6 +838,7 @@ def compile(file_name: str = None) -> None:
                 argument_count += 1
             basic_block.instructions.append(jump_subroutine_instruction)
             function_call_ssa_value = jump_subroutine_instruction.ssa_value
+        program.literals_used.append(f"{input_num_hash}{function_name}:{':'.join(str(arg) for arg in function_arguments_hashes)}")
         return function_call_ssa_value
 
     def _process_condition_clause(basic_block: BasicBlock) -> Instruction:
@@ -621,20 +846,20 @@ def compile(file_name: str = None) -> None:
             raise SyntaxError(f"Expected condition token (i.e. \'if\', \'while\'")
         file_stream.next_token() # consume Keyword.WHILE or Keyword.IF
         left_ssa_value = expression(basic_block)
-        left_literal = program.load_variable() if program.variable_name_ready else ""
+        left_literal = program.load_literal() if program.literal_ready else ""
         compare_operator_token = file_stream.peek_token()
         file_stream.next_token()
         right_ssa_value = expression(basic_block)
-        right_literal = program.load_variable() if program.variable_name_ready else ""
+        right_literal = program.load_literal() if program.literal_ready else ""
         compare_instruction = Instruction(program.generate_ssa_value(), Operator.CMP, left_ssa_value, right_ssa_value, left_literal, right_literal)
         basic_block.instructions.append(compare_instruction)
         branch_operator = Operator.map_comparison_operator(compare_operator_token)
         branch_instruction = Instruction(program.generate_ssa_value(), branch_operator, compare_instruction.ssa_value, None)
-        basic_block.instructions.append(branch_instruction)
+        basic_block.branch_instructions.append(branch_instruction)
         return branch_instruction
     
     def _push_non_branching_basic_block(basic_block: BasicBlock) -> None:
-        if (basic_block.contains_if or basic_block.contains_while) is False:
+        if (basic_block.is_if_block or basic_block.is_while_block) is False:
             program.focused_function.control_flow_stack.append(basic_block)
         return
     
@@ -654,6 +879,8 @@ def compile(file_name: str = None) -> None:
             program.focused_function.basic_blocks[else_basic_block.number] = else_basic_block
             else_basic_block.variable_names_ssa_values = if_basic_block.variable_names_ssa_values.copy()
             else_basic_block.dominated_by = [if_basic_block] + if_basic_block.dominated_by
+            if_basic_block.children.add(else_basic_block)
+            else_basic_block.parents.add(if_basic_block)
             statement_sequence(else_basic_block)
             dot.declare_block(else_basic_block)
             if not else_basic_block.get_instructions():
@@ -688,7 +915,7 @@ def compile(file_name: str = None) -> None:
         return
 
     def if_then_else_fi(if_basic_block: BasicBlock) -> None:
-        if_basic_block.contains_if = True
+        if_basic_block.is_if_block = True
         
         then_basic_block_head = None
         then_basic_block_tail = None
@@ -696,7 +923,8 @@ def compile(file_name: str = None) -> None:
 
         then_basic_block_head: BasicBlock = program.create_new_basic_block()
         join_basic_block: BasicBlock = program.create_new_basic_block()
-        join_basic_block.is_join_block = True
+        join_basic_block.is_fi_block = True
+        join_basic_block.if_block = if_basic_block
 
         function.basic_blocks[if_basic_block.number] = if_basic_block
         function.basic_blocks[then_basic_block_head.number] = then_basic_block_head
@@ -707,6 +935,8 @@ def compile(file_name: str = None) -> None:
         join_basic_block.vars_exps = if_basic_block.vars_exps.copy()
         then_basic_block_head.dominated_by = [if_basic_block] + if_basic_block.dominated_by
         join_basic_block.dominated_by = [if_basic_block] + if_basic_block.dominated_by
+        if_basic_block.children.add(then_basic_block_head)
+        then_basic_block_head.parents.add(if_basic_block)
 
         # processing condition statement
         compare_branch_instruction = _process_condition_clause(if_basic_block)
@@ -721,9 +951,6 @@ def compile(file_name: str = None) -> None:
             raise SyntaxError(f"Expected \'fi\' token")
         file_stream.next_token()
 
-        if 19 in function.control_flow_stack and 16 in function.control_flow_stack:
-            print("debug")
-
         not_then_basic_block_head = else_basic_block
         not_then_basic_block_tail = function.control_flow_stack.pop()
         then_basic_block_tail = function.control_flow_stack.pop()
@@ -736,9 +963,14 @@ def compile(file_name: str = None) -> None:
             if not else_basic_block.get_instructions():
                 then_basic_block_head.instructions.append(Instruction(program.generate_ssa_value(), Operator.EMPTY_INSTRUCTION))
             compare_branch_instruction.operand_2 = not_then_basic_block_head.get_starting_ssa_value()
-            then_basic_block_tail.instructions.append(Instruction(program.generate_ssa_value(), Operator.BRANCH, join_basic_block.get_starting_ssa_value()))
+            then_basic_block_tail.branch_instructions.append(Instruction(program.generate_ssa_value(), Operator.BRANCH, join_basic_block.get_starting_ssa_value()))
         else:
             compare_branch_instruction.operand_2 = join_basic_block.get_starting_ssa_value()
+
+        then_basic_block_tail.children.add(join_basic_block)
+        join_basic_block.parents.add(then_basic_block_tail)
+        not_then_basic_block_tail.children.add(join_basic_block)
+        join_basic_block.parents.add(not_then_basic_block_tail)
 
         function.control_flow_stack.append(join_basic_block)
         function.save_join_basic_block(join_basic_block)
@@ -756,10 +988,19 @@ def compile(file_name: str = None) -> None:
         else:
             dot.declare_branch_arrow(if_basic_block, join_basic_block)
             dot.declare_fall_through_arrow(then_basic_block_tail, join_basic_block)
+        
+        # cf everything
+        cf.add_path(if_basic_block, then_basic_block_head)
+        if else_basic_block:
+            cf.add_path(if_basic_block, not_then_basic_block_head)
+            cf.add_path(then_basic_block_tail, join_basic_block)
+            cf.add_path(not_then_basic_block_tail, join_basic_block)
+        else:
+            cf.add_path(if_basic_block, join_basic_block)
+            cf.add_path(then_basic_block_tail, join_basic_block)
 
         return
     
-        
     def _rewrite_do_ssa_values(variable_name: str, target_ssa_value: int, while_basic_block: BasicBlock, do_basic_block: BasicBlock, remaining_vars: set[str]) -> None:
         # what's the point of old_ssa_value?
         instruction: Instruction
@@ -772,12 +1013,13 @@ def compile(file_name: str = None) -> None:
 
         for basic_block in basic_blocks:
             instructions: list[Instruction] = []
-            for instruction in basic_block.get_instructions():
+            for instruction in basic_block.instructions:
                 if instruction.operator is Operator.CMP:
                     if instruction.operand_1_variable_name == variable_name:
                         instruction.operand_1 = new_ssa_value
                     if instruction.operand_2_variable_name == variable_name:
                         instruction.operand_2 = new_ssa_value
+                    instructions.append(instruction)
                 elif instruction.operator in [Operator.ADD, Operator.SUB, Operator.MUL, Operator.DIV]:
                     if target_ssa_value not in [instruction.operand_1, instruction.operand_2]:
                         instructions.append(instruction)
@@ -808,14 +1050,15 @@ def compile(file_name: str = None) -> None:
                             break
                         similars.append(similar)
                     if similars == instruction.commons:
-                        instructions.append(instruction)
+                        if not (instruction.is_common_subexpression(instructions[-1]) and instruction.has_same_variables(instructions[-1])):
+                            instructions.append(instruction)
                 else:
                     instructions.append(instruction)
             basic_block.instructions = instructions
         return None
 
-
     def while_do_od(while_basic_block: BasicBlock) -> None:
+        function: Function = program.focused_function
         pre_while_basic_block: BasicBlock = None
         do_basic_block_head: BasicBlock = program.create_new_basic_block()
         do_basic_block_tail: BasicBlock = None
@@ -823,15 +1066,18 @@ def compile(file_name: str = None) -> None:
 
         if while_basic_block.get_instructions():
             pre_while_basic_block = while_basic_block
-            pre_while_basic_block.contains_while = True
+            pre_while_basic_block.is_while_block = True
+            pre_while_basic_block.is_pre_while_block = True
             while_basic_block = program.create_new_basic_block()
+            function.basic_blocks[while_basic_block.number] = while_basic_block
             while_basic_block.variable_names_ssa_values = pre_while_basic_block.variable_names_ssa_values.copy()
             while_basic_block.vars_exps = pre_while_basic_block.vars_exps.copy()
             while_basic_block.dominated_by = [pre_while_basic_block] + pre_while_basic_block.dominated_by
+            pre_while_basic_block.children.add(while_basic_block)
+            while_basic_block.parents.add(pre_while_basic_block)
         
-        while_basic_block.contains_while = True
-        while_basic_block.is_join_block = True
-        function: Function = program.focused_function
+        while_basic_block.is_while_block = True
+        od_basic_block.is_od_block = True
         function.basic_blocks[do_basic_block_head.number] = do_basic_block_head
         function.basic_blocks[od_basic_block.number] = od_basic_block
         do_basic_block_head.variable_names_ssa_values = while_basic_block.variable_names_ssa_values.copy()
@@ -839,6 +1085,10 @@ def compile(file_name: str = None) -> None:
         do_basic_block_head.vars_exps = while_basic_block.vars_exps.copy()
         do_basic_block_head.dominated_by = [while_basic_block] + while_basic_block.dominated_by
         od_basic_block.dominated_by = [while_basic_block] + while_basic_block.dominated_by
+        while_basic_block.children.add(do_basic_block_head)
+        do_basic_block_head.parents.add(while_basic_block)
+        while_basic_block.children.add(od_basic_block)
+        od_basic_block.parents.add(while_basic_block)
 
         branch_instruction_from_while_to_od = _process_condition_clause(while_basic_block)
         
@@ -883,12 +1133,15 @@ def compile(file_name: str = None) -> None:
             variable_queue = [var for var in variable_queue if var not in vars_sharing_hash]
             _rewrite_do_ssa_values(variable_name, old_ssa_value, while_basic_block, do_basic_block_tail, remaining_vars)
         
-        do_basic_block_tail.instructions.append(Instruction(program.generate_ssa_value(), Operator.BRANCH, while_basic_block.get_starting_ssa_value()))
+        do_basic_block_tail.branch_instructions.append(Instruction(program.generate_ssa_value(), Operator.BRANCH, while_basic_block.get_starting_ssa_value()))
         if not od_basic_block.get_instructions():
             od_basic_block.instructions.append(Instruction(program.generate_ssa_value(), Operator.EMPTY_INSTRUCTION))
         branch_instruction_from_while_to_od.operand_2 = od_basic_block.get_starting_ssa_value()
         od_basic_block.variable_names_ssa_values = while_basic_block.variable_names_ssa_values.copy()
         od_basic_block.vars_exps = while_basic_block.vars_exps.copy()
+
+        do_basic_block_tail.children.add(while_basic_block)
+        while_basic_block.parents.add(do_basic_block_tail)
 
         function.control_flow_stack.append(od_basic_block)
         function.save_join_basic_block(od_basic_block)
@@ -902,6 +1155,13 @@ def compile(file_name: str = None) -> None:
         dot.declare_fall_through_arrow(while_basic_block, do_basic_block_head)
         dot.declare_branch_arrow(do_basic_block_tail, while_basic_block)
         dot.declare_branch_arrow(while_basic_block, od_basic_block)
+
+        # cf everything
+        if pre_while_basic_block:
+            cf.add_path(pre_while_basic_block, while_basic_block)
+        cf.add_path(while_basic_block, do_basic_block_head)
+        cf.add_path(do_basic_block_tail, while_basic_block)
+        cf.add_path(while_basic_block, od_basic_block)
         
         if file_stream.peek_token() != Keyword.OD:
             raise SyntaxError(f"Expected \'od\' token")
@@ -915,8 +1175,9 @@ def compile(file_name: str = None) -> None:
         result_ssa_value = ""
         if file_stream.peek_token() != Token.SEPARATOR:
             result_ssa_value = expression(basic_block)
-            if program.variable_name_ready:
-                program.load_variable()
+            if program.literal_ready:
+                program.load_literal()
+            program.term_count = 1
         return_instruction = Instruction(program.generate_ssa_value(), Operator.RETURN, result_ssa_value)
         basic_block.instructions.append(return_instruction)
         return
@@ -934,6 +1195,7 @@ def compile(file_name: str = None) -> None:
     def statement(basic_block: BasicBlock) -> None:
         while True: # loop for parsing statements
             basic_block = program.focused_function.determine_join_basic_block(basic_block)
+            program.focused_function.last_basic_block = basic_block
             match file_stream.peek_token():
                 case Keyword.LET:
                     assignment(basic_block)
@@ -1062,14 +1324,200 @@ def compile(file_name: str = None) -> None:
             file_stream.next_token()
         if file_stream.peek_token() != ".":
             raise SyntaxError(f"Expected \'.\' to end computation")
-    
-    # Begin compilation
-    file_stream.next_token()
-    computation()
+        
+    def forward_pass() -> None:
+        # SSA generation and setup for backward pass
+        computation()
+        dot.emit_program()
+        program.emit_program()
+        return
 
-    # Handling output
-    dot.emit_program()
-    program.emit_program()
+    def interfere_basic_block(live_set: set[int], basic_block: BasicBlock) -> set[int]:
+        for instruction in basic_block.instructions[::-1]:
+            if instruction.operator not in RegisterAllocator.RELEVANT_OPERATORS:
+                continue
+            for ssa_value in live_set:
+                if ssa_value != instruction.ssa_value:
+                    ig.declare_edge(instruction.ssa_value, ssa_value)
+            if instruction.operand_1 and instruction.operand_1 > 0:
+                live_set.add(instruction.operand_1)
+            if instruction.operand_2 and instruction.operand_2 > 0:
+                live_set.add(instruction.operand_2)
+            if instruction.ssa_value in live_set:
+                live_set.remove(instruction.ssa_value)
+        used_live_values = set()
+        initialized_live_values = set()
+        for instruction in basic_block.join_instructions[::-1]:
+            if instruction.operator is not Operator.PHI:
+                continue
+            if instruction.operand_1 and instruction.operand_1 > 0:
+                used_live_values.add(instruction.operand_1)
+            if instruction.operand_2 and instruction.operand_2 > 0:
+                used_live_values.add(instruction.operand_2)
+            if type(instruction.ssa_value) == int:
+                initialized_live_values.add(instruction.ssa_value)
+        
+        # node is owned by
+        # owner's nodes
+        live_set |= (used_live_values - initialized_live_values)
+        return live_set
+    
+    def determine_od_block(while_children: set[BasicBlock]) -> BasicBlock:
+        for child in while_children:
+            if child.is_od_block:
+                return child
+        raise ValueError(f"No od block found in while block children")
+
+    def traverse_while_structure(while_block: BasicBlock) -> set[BasicBlock]:
+        members: set[BasicBlock] = set()
+        worklist: Queue[BasicBlock] = Queue()
+        worklist.put(while_block)
+        od_block = determine_od_block(cf.src_dests_norm[while_block])
+        while not worklist.empty():
+            basic_block = worklist.get()
+            dests = cf.src_dests_norm[basic_block]
+            for dest in dests:
+                if dest in [while_block, od_block] or dest in members:
+                    continue
+                members.add(dest)
+                worklist.put(dest)
+        return members
+
+    def remove_subsets(whiles_structs: dict[BasicBlock, set[BasicBlock]]) -> dict[BasicBlock, set[BasicBlock]]:
+        while_blocks = list(whiles_structs.keys())
+        result = {}
+        for while_block in while_blocks:
+            struct = whiles_structs[while_block]
+            # keep struct only if it is not a strict subset of some other set
+            if not any(struct < whiles_structs[other] for other in while_blocks if other != while_block):
+                result[while_block] = struct
+        return result
+
+    def gather_top_while_structures(while_blocks: list[BasicBlock]) -> dict[BasicBlock, set[BasicBlock]]:
+        while_structs = dict()
+        for while_block in while_blocks:
+            while_structs[while_block] = traverse_while_structure(while_block)
+        top_while_structs = remove_subsets(while_structs)
+        return top_while_structs
+
+    def gather_live_values(blocks: set[BasicBlock]) -> set[int]:
+        live_values = set()
+        for block in blocks:
+            for instruction in block.get_instructions():
+                if instruction.operator not in RegisterAllocator.RELEVANT_OPERATORS:
+                    continue
+                    # if instruction.operand_1:
+                    #     live_values.add(instruction.operand_1)
+                    # if instruction.operand_2:
+                    #     live_values.add(instruction.operand_2)
+                if instruction.operand_1 and instruction.operand_1 > 0:
+                    live_values.add(instruction.operand_1)
+                if instruction.operand_2 and instruction.operand_2 > 0:
+                    live_values.add(instruction.operand_2)
+        return live_values
+
+    def gather_initialized_live_values(blocks: set[BasicBlock]) -> set[int]:
+        initialized_live_values = set()
+        for block in blocks:
+            for instruction in block.get_instructions():
+                if instruction.operator in RegisterAllocator.RELEVANT_OPERATORS:
+                    initialized_live_values.add(instruction.ssa_value)
+        return initialized_live_values
+    
+    def interfere_all_live_values(live_set: set[int]) -> None:
+        for v in live_set:
+            for v2 in live_set:
+                if v != v2:
+                    ig.declare_edge(v, v2)
+        return
+
+    def interfere_while_structure(live_set: set[int], blocks: set[BasicBlock]) -> set[int]:
+        live_set |= gather_live_values(blocks)
+        live_initialized_set = gather_initialized_live_values(blocks)
+        interfere_all_live_values(live_set)
+        return live_set - live_initialized_set
+
+    def create_interferences(function: Function) -> None:
+        basic_blocks = function.basic_blocks.values()
+        while_blocks = [bb for bb in basic_blocks if bb.is_while_block and not bb.is_pre_while_block]
+        whiles_structs: dict[BasicBlock, set[BasicBlock]] = gather_top_while_structures(while_blocks)
+        worklist: Queue[BasicBlock] = Queue()
+        worklist.put(function.last_basic_block)
+        results: dict[BasicBlock, set[int]] = dict() # basic blocks to live sets
+        while not worklist.empty():
+            basic_block = worklist.get()
+            if not all(child in results or child.is_while_block for child in cf.src_dests_norm.get(basic_block, set())):
+                worklist.put(basic_block)
+                continue
+            merged_live_set = set().union(*[results[child] for child in cf.src_dests_norm.get(basic_block, set()) if not child.is_while_block])
+            results[basic_block] = interfere_basic_block(merged_live_set, basic_block)
+            if basic_block.is_while_block and not basic_block.is_pre_while_block:
+                results[basic_block] = interfere_while_structure(results[basic_block], whiles_structs[basic_block])
+            for parent in cf.src_dests_reversed.get(basic_block, set()):
+                if parent.is_od_block:
+                    continue
+                worklist.put(parent)
+        return None
+        
+    def find_basic_block_with_ssa_value(basic_blocks: set[BasicBlock], ssa_value: int) -> BasicBlock:
+        for basic_block in basic_blocks:
+            if ssa_value in basic_block.variable_names_ssa_values.values():
+                return basic_block
+        raise ValueError(f"No basic block found with ssa value {ssa_value}")
+
+    def rewrite_program(nodes_registers: dict[int, int]) -> None:
+        for function in program.functions.values():
+            for basic_block in function.basic_blocks.values():
+                for index, instruction in enumerate(basic_block.join_instructions):
+                    if instruction.operator is not Operator.PHI:
+                        raise TypeError(f"Expected phi instruction, received {str(instruction)}")
+                    phi_ssa_value = instruction.ssa_value
+                    operand_1_ssa_value = instruction.operand_1
+                    operand_2_ssa_value = instruction.operand_2
+                    operand_1_regno = nodes_registers.get(operand_1_ssa_value, operand_1_ssa_value)
+                    operand_2_regno = nodes_registers.get(operand_2_ssa_value, operand_2_ssa_value)
+                    operand_1_regname = RegisterAllocator.regno_to_regname(operand_1_regno)
+                    operand_2_regname = RegisterAllocator.regno_to_regname(operand_2_regno)
+                    parents = cf.src_dests_reversed.get(basic_block, set())
+                    phi_regno = nodes_registers.get(phi_ssa_value, None)
+                    basic_block.join_instructions[index] = Instruction(phi_ssa_value, Operator.EMPTY_INSTRUCTION)
+                    if phi_regno is None:
+                        continue
+                    phi_regname = RegisterAllocator.regno_to_regname(phi_regno)
+                    if operand_1_regno != phi_regno:
+                        target_basic_block = find_basic_block_with_ssa_value(parents, operand_1_ssa_value)
+                        target_basic_block.instructions.append(Instruction("∞", Operator.MOV, operand_1_regname, phi_regname))
+                    if operand_2_regno != phi_regno:
+                        target_basic_block = find_basic_block_with_ssa_value(parents, operand_2_ssa_value)
+                        target_basic_block.instructions.append(Instruction("∞", Operator.MOV, operand_2_regname, phi_regname))
+                # basic_block.join_instructions = [] # remove phi instructions
+
+                for instruction in basic_block.instructions + basic_block.branch_instructions:
+                    if instruction.operator in RegisterAllocator.BRANCH_OPERATORS:
+                        instruction.ssa_value = "∞"
+                    if instruction.operand_1 and instruction.operand_1 in nodes_registers:
+                        instruction.operand_1 = RegisterAllocator.regno_to_regname(nodes_registers[instruction.operand_1])
+                    if instruction.operand_2 and instruction.operand_2 in nodes_registers:
+                        instruction.operand_2 = RegisterAllocator.regno_to_regname(nodes_registers[instruction.operand_2])
+                    if instruction.ssa_value in nodes_registers:
+                        instruction.ssa_value = RegisterAllocator.regno_to_regname(nodes_registers[instruction.ssa_value])
+        return
+
+    def backward_pass() -> None:
+        for function in program.functions.values():
+            create_interferences(function)
+        nodes_registers = RegisterAllocator.welsh_powell_color(ig.adjacency_list)
+        rewrite_program(nodes_registers)
+        ig.emit_graph(nodes_registers)
+        dot.emit_regalloc_program()
+        return
+
+    # Emit forward pass
+    file_stream.next_token()
+    forward_pass()
+    
+    # Emit backward pass
+    backward_pass()
 
     # closing all output streams except STDOUT
     close_files(*output_streams)

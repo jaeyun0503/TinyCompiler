@@ -1,0 +1,27 @@
+main
+var ts2, flamewall, zoink;
+
+{
+let zoink <- 0;
+
+let ts2 <- 0;
+let flamewall <- 0;
+while ts2 < 3 do
+    call OutputNum(ts2);
+
+    let flamewall <- 0;
+    while flamewall < 3 do
+        call OutputNum(flamewall);
+
+        call OutputNum(zoink);
+        let zoink <- zoink + 1;
+
+        let flamewall <- flamewall + 1;
+    od
+
+    let ts2 <- ts2 + 1;
+od
+
+
+}
+.

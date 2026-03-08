@@ -4,7 +4,7 @@ Module for handling output
 
 class OutStream:
     def __init__(self, *destinations):
-        self.destinations = destinations
+        self.destinations: tuple = destinations
     
     def write(self, content: str) -> None:
         for destination in self.destinations:

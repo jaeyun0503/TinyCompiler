@@ -1,0 +1,19 @@
+digraph G {
+function_MAIN [shape=trapezium, label="F[_MAIN]"];
+bb1 [shape=record,label="<b>BB[1]|{-1: const #0|-2: const #10|-3: const #1}"];
+bb2 [shape=record,label="<b>BB[2]|{1: read}"];
+bb5 [shape=record,label="<b>join\nBB[5]|{5: phi 4 1|7: phi 6 -1|2: cmp -1 -2|3: bge 2 9}"];
+bb3 [shape=record,label="<b>BB[3]|{4: add 5 -3|6: add 1 -3|8: bra 5}"];
+bb4 [shape=record,label="<b>BB[4]|{9: \<empty\>}"];
+function_MAIN:s -> bb1:n [arrowhead=icurve, penwidth=2];
+bb1:s -> bb2:n;
+bb2:s -> bb5:n;
+bb5:s -> bb3:n [label="fall-through", color="#4ebf63", fontcolor="#4ebf63"];
+bb3:s -> bb5:n [label="branch", color="#d26f4f", fontcolor="#d26f4f"];
+bb5:s -> bb4:n [label="branch", color="#d26f4f", fontcolor="#d26f4f"];
+bb2:s -> bb5:b [label="dom", style=dotted, color="#6b80d4", fontcolor="#6b80d4"];
+bb5:s -> bb3:b [label="dom", style=dotted, color="#6b80d4", fontcolor="#6b80d4"];
+bb2:s -> bb3:b [label="dom", style=dotted, color="#6b80d4", fontcolor="#6b80d4"];
+bb5:s -> bb4:b [label="dom", style=dotted, color="#6b80d4", fontcolor="#6b80d4"];
+bb2:s -> bb4:b [label="dom", style=dotted, color="#6b80d4", fontcolor="#6b80d4"];
+}

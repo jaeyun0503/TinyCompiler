@@ -1,0 +1,26 @@
+digraph G {
+function_MAIN [shape=trapezium, label="F[_MAIN]"];
+bb3 [shape=record,label="<b>BB[3]|{R2: \<empty\>|R2: add -1 -1|R2: add R2 -1|mov R2 R1|bra R1}"];
+bb2 [shape=record,label="<b>BB[2]|{R3: \<empty\>|R3: cmp -1 -2|bge R3 R1}"];
+bb6 [shape=record,label="<b>BB[6]|{R2: \<empty\>}"];
+bb5 [shape=record,label="<b>BB[5]|{R1: \<empty\>|R1: add -3 -1}"];
+bb7 [shape=record,label="<b>join\nBB[7]|{17: \<empty\>|14: \<empty\>|18: add -5 -5}"];
+bb1 [shape=record,label="<b>BB[1]|{1: \<empty\>|-1: const #1|-2: const #2|-3: const #1000|-4: const #0|-5: const #67}"];
+bb4 [shape=record,label="<b>join\nBB[4]|{11: \<empty\>|R2: \<empty\>|R2: cmp R1 -2|bge R2 17}"];
+function_MAIN:s -> bb1:n [arrowhead=icurve, penwidth=2];
+bb1:s -> bb2:n;
+bb2:s -> bb3:n [label="fall-through", color="#4ebf63", fontcolor="#4ebf63"];
+bb2:s -> bb5:n [label="branch", color="#d26f4f", fontcolor="#d26f4f"];
+bb3:s -> bb4:n [label="branch", color="#d26f4f", fontcolor="#d26f4f"];
+bb5:s -> bb4:n [label="fall-through", color="#4ebf63", fontcolor="#4ebf63"];
+bb4:s -> bb6:n [label="fall-through", color="#4ebf63", fontcolor="#4ebf63"];
+bb4:s -> bb7:n [label="branch", color="#d26f4f", fontcolor="#d26f4f"];
+bb6:s -> bb7:n [label="fall-through", color="#4ebf63", fontcolor="#4ebf63"];
+bb2:s -> bb3:b [label="dom", style=dotted, color="#6b80d4", fontcolor="#6b80d4"];
+bb4:s -> bb6:b [label="dom", style=dotted, color="#6b80d4", fontcolor="#6b80d4"];
+bb2:s -> bb6:b [label="dom", style=dotted, color="#6b80d4", fontcolor="#6b80d4"];
+bb2:s -> bb5:b [label="dom", style=dotted, color="#6b80d4", fontcolor="#6b80d4"];
+bb4:s -> bb7:b [label="dom", style=dotted, color="#6b80d4", fontcolor="#6b80d4"];
+bb2:s -> bb7:b [label="dom", style=dotted, color="#6b80d4", fontcolor="#6b80d4"];
+bb2:s -> bb4:b [label="dom", style=dotted, color="#6b80d4", fontcolor="#6b80d4"];
+}

@@ -1,0 +1,32 @@
+digraph G {
+function_MAIN [shape=trapezium, label="F[_MAIN]"];
+bb7 [shape=record,label="<b>BB[7]|{8: \<empty\>|11: bra 10}"];
+bb1 [shape=record,label="<b>BB[1]|{-1: const #1|-2: const #0}"];
+bb6 [shape=record,label="<b>BB[6]|{6: write -1|7: bra 4}"];
+bb2 [shape=record,label="<b>BB[2]|{1: cmp -1 -2|2: bge 1 9}"];
+bb5 [shape=record,label="<b>join\nBB[5]|{4: cmp -1 -2|5: bge 4 8}"];
+bb3 [shape=record,label="<b>BB[3]|{3: write -1}"];
+bb4 [shape=record,label="<b>join\nBB[4]|{10: \<empty\>}"];
+bb8 [shape=record,label="<b>BB[8]|{9: write -2}"];
+function_MAIN:s -> bb1:n [arrowhead=icurve, penwidth=2];
+bb1:s -> bb2:n;
+bb3:s -> bb5:n;
+bb5:s -> bb6:n [label="fall-through", color="#4ebf63", fontcolor="#4ebf63"];
+bb6:s -> bb5:n [label="branch", color="#d26f4f", fontcolor="#d26f4f"];
+bb5:s -> bb7:n [label="branch", color="#d26f4f", fontcolor="#d26f4f"];
+bb2:s -> bb3:n [label="fall-through", color="#4ebf63", fontcolor="#4ebf63"];
+bb2:s -> bb8:n [label="branch", color="#d26f4f", fontcolor="#d26f4f"];
+bb7:s -> bb4:n [label="branch", color="#d26f4f", fontcolor="#d26f4f"];
+bb8:s -> bb4:n [label="fall-through", color="#4ebf63", fontcolor="#4ebf63"];
+bb5:s -> bb7:b [label="dom", style=dotted, color="#6b80d4", fontcolor="#6b80d4"];
+bb3:s -> bb7:b [label="dom", style=dotted, color="#6b80d4", fontcolor="#6b80d4"];
+bb2:s -> bb7:b [label="dom", style=dotted, color="#6b80d4", fontcolor="#6b80d4"];
+bb5:s -> bb6:b [label="dom", style=dotted, color="#6b80d4", fontcolor="#6b80d4"];
+bb3:s -> bb6:b [label="dom", style=dotted, color="#6b80d4", fontcolor="#6b80d4"];
+bb2:s -> bb6:b [label="dom", style=dotted, color="#6b80d4", fontcolor="#6b80d4"];
+bb3:s -> bb5:b [label="dom", style=dotted, color="#6b80d4", fontcolor="#6b80d4"];
+bb2:s -> bb5:b [label="dom", style=dotted, color="#6b80d4", fontcolor="#6b80d4"];
+bb2:s -> bb3:b [label="dom", style=dotted, color="#6b80d4", fontcolor="#6b80d4"];
+bb2:s -> bb4:b [label="dom", style=dotted, color="#6b80d4", fontcolor="#6b80d4"];
+bb2:s -> bb8:b [label="dom", style=dotted, color="#6b80d4", fontcolor="#6b80d4"];
+}

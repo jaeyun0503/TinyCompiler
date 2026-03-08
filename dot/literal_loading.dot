@@ -1,0 +1,17 @@
+digraph G {
+functioncompute [shape=trapezium, label="F[compute]"];
+functionsum [shape=trapezium, label="F[sum]"];
+function_MAIN [shape=trapezium, label="F[_MAIN]"];
+bb5 [shape=record,label="<b>BB[5]|{-2: const #10}"];
+bb1 [shape=record,label="<b>BB[1]|{-1: const #10}"];
+bb3 [shape=record,label="<b>BB[3]|{6: \<empty\>}"];
+bb6 [shape=record,label="<b>BB[6]|{7: add -2 -2|8: jsr 1|9: add 7 8|10: jsr 1|11: jsr 1|12: add 10 11|13: jsr 1|14: jsr 1|15: add 13 14|17: setpar1 15|18: setpar2 7|16: jsr 2|19: write 16}"];
+bb4 [shape=record,label="<b>BB[4]|{2: getpar1|3: getpar2|4: add 2 3|5: return 4}"];
+bb2 [shape=record,label="<b>BB[2]|{1: return -1}"];
+functioncompute:s -> bb1:n [arrowhead=icurve, penwidth=2];
+functionsum:s -> bb3:n [arrowhead=icurve, penwidth=2];
+function_MAIN:s -> bb5:n [arrowhead=icurve, penwidth=2];
+bb1:s -> bb2:n;
+bb3:s -> bb4:n;
+bb5:s -> bb6:n;
+}

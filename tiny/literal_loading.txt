@@ -1,0 +1,22 @@
+main
+var a, b; 
+
+void function compute(); var c, d; {
+    return 10;
+};
+
+void function sum(a, b); var c; {
+    return a + b;
+};
+
+{
+let a <- 10 + 10 + call compute;
+let a <- call compute + call compute;
+let a <- call sum(call compute + call compute, 10 + 10);
+call OutputNum(a);
+}
+.
+
+let a <- 1;
+let a <- call compute;
+let a <- call sum(call compute, call compute());
